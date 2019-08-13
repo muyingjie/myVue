@@ -8,11 +8,19 @@
   <script src="own-vue.js"></script>
 </head>
 <body>
-  <div id="app">{{message}}</div>
+  <div id="app"></div>
 </body>
 <script>
 var app = new ViewComp({
   el: '#app',
+  // 此处通过render创建的节点会将页面上原有的#app替换掉
+  render: function (createElement) {
+    return createElement('div', {
+      attrs: {
+        id: 'app'
+      }
+    }, this.message)
+  },
   data: {
     message: 'Hello ViewComp!'
   }
