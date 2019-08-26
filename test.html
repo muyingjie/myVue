@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Document</title>
+  <script src="render.js"></script>
   <script src="own-vue.js"></script>
 </head>
 <body>
@@ -15,11 +16,7 @@ var app = new ViewComp({
   el: '#app',
   // 此处通过render创建的节点会将页面上原有的#app替换掉
   render: function (createElement) {
-    return createElement('div', {
-      attrs: {
-        id: 'app'
-      }
-    }, this.message)
+    return createElement('div', {}, this.message)
   },
   data: {
     message: 'Hello ViewComp!'
