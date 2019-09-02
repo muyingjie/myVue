@@ -1,3 +1,13 @@
+// utils
+const hasOwnProperty = Object.prototype.hasOwnProperty
+function hasOwn (obj, key) {
+  return hasOwnProperty.call(obj, key)
+}
+
+function error (s) {
+  console.error(s)
+}
+
 function ViewComp (options) {
   this._init(options)
 }
@@ -7,7 +17,40 @@ ViewComp.prototype._init = function (options) {
   this._mount(options.el)
 }
 ViewComp.prototype._initData = function (data) {
-  observe(data)
+  if (!data || typeof data !== 'function') {
+    error('data option must be a function')
+    return
+  }
+  let _data = data.call(this)
+  let _props = this._options.props
+  let _methods = this._options.methods
+  let keys = Object.keys(_data)
+  keys.forEach(k => {
+    let isDefinedInMethodOrProp = false
+    if (_methods && hasOwn(_methods, k)) {
+      error(`'${k}' has been defined in methods, so it can't be redefined in the data object`)
+      isDefinedInMethodOrProp = true
+    }
+    if (_props && hasOwn(_props, k)) {
+      error(`'${k}' has been defined in methods, so it can't be redefined in the data object`)
+      isDefinedInMethodOrProp = true
+    }
+    if (isDefinedInMethodOrProp) return
+    proxy(this, k, '_data')
+  })
+  observe(_data)
+}
+function proxy (obj, k, proxyKeyObjectName) {
+  Object.defineProperty(obj, k, {
+    enumerable: true,
+    configurable: true,
+    get: function () {
+      return obj[proxyKeyObjectName][k]
+    },
+    set: function (v) {
+      obj[proxyKeyObjectName][k] = v
+    }
+  })
 }
 function observe (value) {
   if (!isObject(value)) return
