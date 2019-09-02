@@ -22,7 +22,7 @@ ChildrenFlags.MULTIPLE_VNODES = ChildrenFlags.KEYED_VNODES | ChildrenFlags.NONE_
 
 function render (vnode, container) {
   const prevVNode = container.vnode
-  if (prevVNode === null) {
+  if (prevVNode == null) {
     if (vnode) {
       mount(vnode, container)
       container.vnode = vnode
@@ -49,12 +49,6 @@ function mount (vnode, container) {
   }
 }
 
-// function mountComponent (vnode, container) {
-//   const instance = new vnode.tag()
-//   instance.$vnode = instance.render()
-//   mountElement(instance.$vnode, container)
-// }
-
 function mountComponent (vnode, container) {
   if (vnode.flags & VNodeFlags.COMPONENT_STATEFUL_NORMAL) {
     mountStatefulComponent(vnode, container)
@@ -64,16 +58,47 @@ function mountComponent (vnode, container) {
 }
 
 function mountStatefulComponent (vnode, container) {
-  const instance = new vnode.tag()
-  instance.$vnode = instance.render()
-  mount(instance.$vnode, container)
-  instance.$el = vnode.el = instance.$vnode.el
+  const instance = (vnode.children = new vnode.tag())
+  instance.$props = vnode.data
+  instance._update = function () {
+    if (instance._mounted) {
+      const prevVNode = instance.$vnode
+      const nextVNode = (instance.$vnode = instance.render())
+      patch(prevVNode, nextVNode, prevVNode.el.parentNode)
+      instance.$el = vnode.el = instance.$vnode.el
+    } else {
+      instance.$vnode = instance.render()
+      mount(instance.$vnode, container)
+      instance._mounted = true
+      instance.$el = vnode.el = instance.$vnode.el
+      instance.mounted && instance.mounted()
+    }
+  }
+  instance._update()
 }
 
 function mountFunctionalComponent (vnode, container) {
-  const $vnode = vnode.tag()
-  mount($vnode, container)
-  vnode.$el = $vnode.el
+  vnode.handle = {
+    prev: null,
+    next: vnode,
+    container,
+    update: () => {
+      if (vnode.handle.prev) {
+        const prevVNode = vnode.handle.prev
+        const nextVNode = vnode.handle.next
+        const prevTree = prevVNode.children
+        const props = nextVNode.data
+        const nextTree = (nextVNode.children = nextVNode.tag(props))
+        patch(prevTree, nextTree, vnode.handle.container)
+      } else {
+        const props = vnode.data
+        const $vnode = (vnode.children = vnode.tag(props))
+        mount($vnode, container)
+        vnode.$el = $vnode.el
+      }
+    }
+  }
+  vnode.handle.update()
 }
 
 const domPropsRE = /\W|^(?:value|checked|selected|muted)$/
@@ -210,6 +235,12 @@ function patch (prevVNode, nextVNode, container) {
   const nextFlags = nextVNode.flags
   const prevFlags = prevVNode.flags
 
+  // 如果prevVNode是DOM节点，prevFlags就是undefined
+  if (!prevFlags) {
+    mount(nextVNode, container)
+    return
+  }
+
   if (nextFlags !== prevFlags) {
     replaceVNode(prevVNode, nextVNode, container)
   } else if (nextFlags & VNodeFlags.ELEMENT) {
@@ -222,8 +253,26 @@ function patch (prevVNode, nextVNode, container) {
 }
 
 function replaceVNode (prevVNode, nextVNode, container) {
-  container.removeChild(prevVNode.el)
+  if (prevVNode.el) {
+    container.removeChild(prevVNode.el)
+  }
   mount(nextVNode, container)
+}
+
+function patchComponent (prevVNode, nextVNode, container) {
+  if (nextVNode.tag !== prevVNode.tag) {
+    replaceVNode(prevVNode, nextVNode, container)
+  } else if (nextVNode.flags && VNodeFlags.COMPONENT_STATEFUL_NORMAL) {
+    const instance = (nextVNode.children = prevVNode.children)
+    instance.$props = nextVNode.data
+    instance._update()
+  } else {
+    const handle = (nextVNode.handle = prevVNode.handle)
+    handle.prev = prevVNode
+    handle.next = nextVNode
+    handle.container = container
+    handle.update()
+  }
 }
 
 function patchElement (prevVNode, nextVNode, container) {
@@ -363,4 +412,7 @@ function patchChildren (
 
 function patchText (prevVNode, nextVNode) {
   const el = (nextVNode.el = prevVNode.el)
+  if (nextVNode.children !== prevVNode.children) {
+    el.nodeValue = nextVNode.children
+  }
 }

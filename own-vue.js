@@ -7,6 +7,8 @@ function hasOwn (obj, key) {
 function error (s) {
   console.error(s)
 }
+// utils function
+function noop () {}
 
 function ViewComp (options) {
   this._init(options)
@@ -159,7 +161,7 @@ ViewComp.prototype._mount = function (el) {
     options.render = render
   }
   // 执行真正的挂载过程，即将虚拟DOM转换为真实DOM
-  return mountComponent(vm, el)
+  return mountComponent(this, el)
 }
 function compileToFunctions (template, comp) {
   let res = {}
@@ -385,6 +387,7 @@ function parseHTML (html, options) {
   }
 }
 function mountComponent (vm, el) {
+  vm.$el = el
   let updateComponent = () => {
     vm._update(vm._render())
   }
@@ -394,20 +397,20 @@ function mountComponent (vm, el) {
 ViewComp.prototype._render = function () {
   const vm = this
   const render = vm._options.render
-  let vnode = render.call(vm, vm.$createElement)
+  let vnode = render.call(vm, createVNode)
   return vnode
 }
-ViewComp.prototype.$createElement = function () {}
+
 ViewComp.prototype._update = function (vnode) {
   const vm = this
-  const prevEl = vm.$el
   const prevVnode = vm._node
+  const parentNode = vm.$el.parentNode
 
   vm._vnode = vnode
   if (!prevVnode) {
-    vm.$el = vm.__patch__(vm.$el, vnode)
+    vm.$el = patch(vm.$el, vnode, parentNode)
   } else {
-    vm.$el = vm.__patch__(prevVnode, vnode)
+    vm.$el = patch(prevVnode, vnode, parentNode)
   }
 }
 ViewComp.prototype.$watch = function (expOrFn, cb, options) {
