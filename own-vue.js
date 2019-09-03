@@ -42,15 +42,15 @@ ViewComp.prototype._initData = function (data) {
   })
   observe(_data)
 }
-function proxy (obj, k, proxyKeyObjectName) {
+function proxy (obj, k, proxyObjectKeyName) {
   Object.defineProperty(obj, k, {
     enumerable: true,
     configurable: true,
     get: function () {
-      return obj[proxyKeyObjectName][k]
+      return obj[proxyObjectKeyName][k]
     },
     set: function (v) {
-      obj[proxyKeyObjectName][k] = v
+      obj[proxyObjectKeyName][k] = v
     }
   })
 }
