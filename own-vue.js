@@ -23,7 +23,7 @@ ViewComp.prototype._initData = function (data) {
     error('data option must be a function')
     return
   }
-  let _data = data.call(this)
+  let _data = this._data = data.call(this)
   let _props = this._options.props
   let _methods = this._options.methods
   let keys = Object.keys(_data)
@@ -62,6 +62,7 @@ function observe (value) {
 }
 function Observer (value) {
   this.value = value
+  this.dep = new Dep()
   if (isObject(value)) {
     this.walk(value)
   }
@@ -122,7 +123,7 @@ function Watcher (vm, fn, cb, options) {
   this.get()
 }
 Watcher.prototype.addDep = function (dep) {
-  if (!this.deps.has(dep)) {
+  if (!this.deps.includes(dep)) {
     this.deps.push(dep)
     dep.addSub(this)
   }
