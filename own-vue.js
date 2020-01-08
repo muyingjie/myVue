@@ -7,6 +7,10 @@ function hasOwn (obj, key) {
 function error (s) {
   console.error(s)
 }
+
+function isObject (obj) {
+  return obj !== null && typeof obj === 'object'
+}
 // utils function
 function noop () {}
 
@@ -23,10 +27,12 @@ ViewComp.prototype._initData = function (data) {
     error('data option must be a function')
     return
   }
+  let options = this._options
   let _data = data.call(this)
   let _props = this._options.props
   let _methods = this._options.methods
   let keys = Object.keys(_data)
+  this._data = _data
   keys.forEach(k => {
     let isDefinedInMethodOrProp = false
     if (_methods && hasOwn(_methods, k)) {
@@ -109,9 +115,6 @@ Dep.prototype.notify = function () {
     this.subs[i].update()
   }
 }
-function isObject (obj) {
-  return obj !== null && typeof obj === 'object'
-}
 function Watcher (vm, fn, cb, options) {
   this.vm = vm
   this.getter = fn
@@ -122,7 +125,7 @@ function Watcher (vm, fn, cb, options) {
   this.get()
 }
 Watcher.prototype.addDep = function (dep) {
-  if (!this.deps.has(dep)) {
+  if (this.deps.indexOf(dep) === -1) {
     this.deps.push(dep)
     dep.addSub(this)
   }

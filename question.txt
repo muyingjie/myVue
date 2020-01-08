@@ -1,1 +1,10 @@
 1、有些方法名字实在太普通了，例如error，hasOwn，这些方法会不会与其他库冲突？
+2、计算属性中返回新生成的对象或数组，这个对象或数组中不会加监听
+3、计算属性中不可以用async、await
+
+组件注册
+initAssetRegisters
+组件使用
+resolveAsset
+在mergeOptions的过程中，将会取出父组件注册的全局组件，merge到子组件上，这样子组件就可以用到这些全局组件
+components在合并过程中调用的合并策略函数是mergeAssets

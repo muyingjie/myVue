@@ -1,0 +1,115 @@
+vue源码学习总结：
+1、整体感受：
+Vue构造函数实际上是对页面组件的一个抽象，每个组件其实都是这一构造函数的实例化对象或其子类的实例化对象
+2、大体流程：
+每个组件在最初实例化时，大概分为两步：
+第一步：对数据和选项参数的处理，对应initData、initProp、initMethods、initComputed等方法
+第二步：按照处理好的数据，在对应的DOM节点上做渲染，对应mount方法
+function Vue (options) {
+  this._init(options)
+}
+Vue.prototype._init = function (options) {
+  this._options = options
+  this._initData(options.data)
+  this._mount(options.el)
+}
+3、对数据和选项参数的处理，此处以initData为例说明
+initData有以下重要的操作：
+（1）、判断传进来的data选项是不是函数，如果不是函数给出提示；我们在平时写vue组件时，js部分实际上是一个对象，data选项通常会写成以下的形式：
+export default {
+  data () {
+    return {
+      list: []
+    }
+  }
+}
+可以发现data是一个函数，这是因为一个组件可能会被实例化为若干个页面上的组件，这些不同的组件需要有各自的数据，因此data必须是函数返回对象的形式，以保证每个组件有一份独立的数据，避免互相影响
+（2）、判断props和methods中定义的各个属性是否有在data中重复定义过，如果重复定义过了，给出提示；我们有时候遇到：
+Method "${key}" has already been defined as a data property.
+The data property "${key}" is already declared as a prop.
+就是在这个地方报出来的
+（3）、对data中各属性做代理；我们在模板中经常会这样写：
+<div>{{list}}</div>
+<div v-for="item in list">{{item.name}}</div>
+<a @click="goToCreate">创建</a>
+注意，在模板编译成render函数后，list是直接从组建实例对象上去取的，也就是vm.list，我们模板中的list是定义在data上的，所以正确的取值方式应该是vm.data.list，如果不做任何处理，vm.list取到的是undefined，为什么可以通过vm.list去取呢？
+因为在vue中，对data、methods等属性、方法做了代理操作，至于具体如何做的，详见下文
+（4）、将data中各属性变成响应式数据；我们通过获取各个属性时触发的get钩子收集依赖，再通过设置数据属性时触发的set钩子遍历所有的响应函数执行，这个过程内容比较多，详见下文
+整体vue的data初始化流程大概如下
+Vue.prototype._initData = function (data) {
+  if (!data || typeof data !== 'function') {
+    error('data option must be a function')
+    return
+  }
+  let _data = data.call(this)
+  let _props = this._options.props
+  let _methods = this._options.methods
+  let keys = Object.keys(_data)
+  keys.forEach(k => {
+    let isDefinedInMethodOrProp = false
+    if (_methods && hasOwn(_methods, k)) {
+      error(`'${k}' has been defined in methods, so it can't be redefined in the data object`)
+      isDefinedInMethodOrProp = true
+    }
+    if (_props && hasOwn(_props, k)) {
+      error(`'${k}' has been defined in methods, so it can't be redefined in the data object`)
+      isDefinedInMethodOrProp = true
+    }
+    if (isDefinedInMethodOrProp) return
+    proxy(this, k, '_data')
+  })
+  observe(_data)
+}
+4、如何对data中各个属性做代理；在上面的_initData中，有这样一步：
+proxy(this, k, '_data')
+这一步就是3当中分析的第（3）步所做的事情，此处三个实参分别代表vue实例对象、data中的key名称、要代理到实例对象的那个数据集合上，proxy的具体实现如下：
+function proxy (obj, k, proxyKeyObjectName) {
+  Object.defineProperty(obj, k, {
+    enumerable: true,
+    configurable: true,
+    get: function () {
+      return obj[proxyKeyObjectName][k]
+    },
+    set: function (v) {
+      obj[proxyKeyObjectName][k] = v
+    }
+  })
+}
+可以看到，对于在_initData中遍历到的data中的每个key，都会通过Object.defineProperty将其做一层代理，这一层代理的意思是如果在实例对象obj上访问k属性（假如说访问我们上面提到的list属性），则直接走这里的get钩子，返回obj._data.list，这样就做到了直接在obj上访问list——obj.list，依然可以获取到data中对应的数据了
+
+2019年09月18日
+5、接下来vue做的一个很重要的工作是将data里面的数据变为响应的，也就是observe(_data)干的事情
+我们平时封装组件时data通常都是返回一个对象，对象有很多属性，这些属性既可以是基本类型，也可以是引用类型，为简单起见，我们先从基本类型看起
+Vue内部会将每个属性都重新定义为响应式属性，也就是给它们添加set和get钩子，之后的思路大概是在get中收集属性变化时需要执行的方法，然后在set中遍历这些方法执行即可，不过Vue的实现略微复杂一些
+添加钩子的过程是在Observer类中进行的，此处需要注意，如果data里每个属性的值都是基本类型，则data下所有属性共享一个Observer对象：
+function observe (v) {
+  if (!isObject(v)) return
+  return new Observer(v)
+}
+function Observer (v) {
+  this.value = v
+}
+由于data里面的属性需要挨个定义为响应式的，所以Observer内部必然有一个遍历所有data属性的方法，这个方法是walk
+function Observer (v) {
+  this.value = v
+  this.walk(v)
+}
+Observer.prototype.walk = function (v) {
+  let keys = Object.keys(v)
+  for (let i = 0; i < keys.length; i++) {
+    defineReactive(obj, keys[i])
+  }
+}
+function defineProperty (obj, k) {
+  Object.defineProperty(obj, key, {
+    enumerable: true,
+    configurable: true,
+    get: function () {
+      return obj[k]
+    },
+    set: function (v) {
+      if (v === obj[k]) return
+      obj[k] = v
+    }
+  })
+}
