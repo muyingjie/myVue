@@ -15,17 +15,10 @@
 var app = new ViewComp({
   el: '#app',
   // 此处通过render创建的节点会将页面上原有的#app替换掉
-<<<<<<< HEAD
-  // render: function (createElement) {
-  //   return createElement('div', {}, this.message)
-  // },
-  template: '<div>{{message}}</div>',
-=======
   render: function (createElement) {
     console.log(this._data)
     return createElement('div', {}, this.message)
   },
->>>>>>> 0bc4e30caa62f59c19cd198d2fd2b8216d9ccbec
   data: function () {
     return {
       message: 'Hello ViewComp!'

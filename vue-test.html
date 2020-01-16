@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Document</title>
-  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <script src="vue.js"></script>
 </head>
 <body>
   <div id="app">{{message}}</div>
@@ -14,8 +14,16 @@
 var app = new Vue({
   el: '#app',
   data: {
-    message: 'Hello ViewComp!'
+    message: 'Hello ViewComp!',
+    a: 1
   },
+  template: `
+  <div>
+    <span v-if="a===1">1</span>
+    <span v-else-if="a===2">2</span>
+    <span v-else-if="a===3">3</span>
+  </div>
+  `,
   mounted() {
     this.message = '111'
   },

@@ -1,10 +1,251 @@
-function compile (template) {
-  const ast = parse(template)
-  optimize(ast)
-  const code = generate(ast)
+// klass
+function transformNode (el, options) {
+  const warn = options.warn || baseWarn;
+  const staticClass = getAndRemoveAttr(el, 'class');
+  if (staticClass) {
+    el.staticClass = JSON.stringify(staticClass);
+  }
+  const classBinding = getBindingAttr(el, 'class', false /* getStatic */);
+  if (classBinding) {
+    el.classBinding = classBinding;
+  }
+}
+function genData (el) {
+  let data = '';
+  if (el.staticClass) {
+    data += `staticClass:${el.staticClass},`;
+  }
+  if (el.classBinding) {
+    data += `class:${el.classBinding},`;
+  }
+  return data
+}
+var klass$1 = {
+  staticKeys: ['staticClass'],
+  transformNode,
+  genData
+};
+
+// style
+function transformNode$1 (el, options) {
+  const staticStyle = getAndRemoveAttr(el, 'style');
+  if (staticStyle) {
+    el.staticStyle = JSON.stringify(parseStyleText(staticStyle));
+  }
+
+  const styleBinding = getBindingAttr(el, 'style', false /* getStatic */);
+  if (styleBinding) {
+    el.styleBinding = styleBinding;
+  }
+}
+function genData$1 (el) {
+  let data = '';
+  if (el.staticStyle) {
+    data += `staticStyle:${el.staticStyle},`;
+  }
+  if (el.styleBinding) {
+    data += `style:(${el.styleBinding}),`;
+  }
+  return data
+}
+var style$1 = {
+  staticKeys: ['staticStyle'],
+  transformNode: transformNode$1,
+  genData: genData$1
+};
+// model
+function preTransformNode (el, options) {
+  if (el.tag === 'input') {
+    const map = el.attrsMap;
+    if (map['v-model'] && (map['v-bind:type'] || map[':type'])) {
+      const typeBinding = getBindingAttr(el, 'type');
+      const ifCondition = getAndRemoveAttr(el, 'v-if', true);
+      const ifConditionExtra = ifCondition ? `&&(${ifCondition})` : ``;
+      const hasElse = getAndRemoveAttr(el, 'v-else', true) != null;
+      const elseIfCondition = getAndRemoveAttr(el, 'v-else-if', true);
+      // 1. checkbox
+      const branch0 = cloneASTElement(el);
+      // process for on the main node
+      processFor(branch0);
+      addRawAttr(branch0, 'type', 'checkbox');
+      processElement(branch0, options);
+      branch0.processed = true; // prevent it from double-processed
+      branch0.if = `(${typeBinding})==='checkbox'` + ifConditionExtra;
+      addIfCondition(branch0, {
+        exp: branch0.if,
+        block: branch0
+      });
+      // 2. add radio else-if condition
+      const branch1 = cloneASTElement(el);
+      getAndRemoveAttr(branch1, 'v-for', true);
+      addRawAttr(branch1, 'type', 'radio');
+      processElement(branch1, options);
+      addIfCondition(branch0, {
+        exp: `(${typeBinding})==='radio'` + ifConditionExtra,
+        block: branch1
+      });
+      // 3. other
+      const branch2 = cloneASTElement(el);
+      getAndRemoveAttr(branch2, 'v-for', true);
+      addRawAttr(branch2, ':type', typeBinding);
+      processElement(branch2, options);
+      addIfCondition(branch0, {
+        exp: ifCondition,
+        block: branch2
+      });
+
+      if (hasElse) {
+        branch0.else = true;
+      } else if (elseIfCondition) {
+        branch0.elseif = elseIfCondition;
+      }
+
+      return branch0
+    }
+  }
+}
+var model$2 = {
+  preTransformNode
+};
+
+var modules$1 = [
+  klass$1,
+  style$1,
+  model$2
+];
+
+
+function model (
+  el,
+  dir,
+  _warn
+) {
+  warn$1 = _warn;
+  const value = dir.value;
+  const modifiers = dir.modifiers;
+  const tag = el.tag;
+  const type = el.attrsMap.type;
+
+  {
+    // inputs with type="file" are read only and setting the input's
+    // value will throw an error.
+    if (tag === 'input' && type === 'file') {
+      warn$1(
+        `<${el.tag} v-model="${value}" type="file">:\n` +
+        `File inputs are read only. Use a v-on:change listener instead.`
+      );
+    }
+  }
+
+  if (el.component) {
+    genComponentModel(el, value, modifiers);
+    // component v-model doesn't need extra runtime
+    return false
+  } else if (tag === 'select') {
+    genSelect(el, value, modifiers);
+  } else if (tag === 'input' && type === 'checkbox') {
+    genCheckboxModel(el, value, modifiers);
+  } else if (tag === 'input' && type === 'radio') {
+    genRadioModel(el, value, modifiers);
+  } else if (tag === 'input' || tag === 'textarea') {
+    genDefaultModel(el, value, modifiers);
+  } else if (!config.isReservedTag(tag)) {
+    genComponentModel(el, value, modifiers);
+    // component v-model doesn't need extra runtime
+    return false
+  } else {
+    warn$1(
+      `<${el.tag} v-model="${value}">: ` +
+      `v-model is not supported on this element type. ` +
+      'If you are working with contenteditable, it\'s recommended to ' +
+      'wrap a library dedicated for that purpose inside a custom component.'
+    );
+  }
+
+  // ensure runtime directive metadata
+  return true
+}
+function text (el, dir) {
+  if (dir.value) {
+    addProp(el, 'textContent', `_s(${dir.value})`);
+  }
+}
+
+function html (el, dir) {
+  if (dir.value) {
+    addProp(el, 'innerHTML', `_s(${dir.value})`);
+  }
+}
+var directives$1 = {
+  model,
+  text,
+  html
+};
+
+const acceptValue = makeMap('input,textarea,option,select,progress');
+const mustUseProp = (tag, type, attr) => {
+  return (
+    (attr === 'value' && acceptValue(tag)) && type !== 'button' ||
+    (attr === 'selected' && tag === 'option') ||
+    (attr === 'checked' && tag === 'input') ||
+    (attr === 'muted' && tag === 'video')
+  )
+};
+
+const isHTMLTag = makeMap(
+  'html,body,base,head,link,meta,style,title,' +
+  'address,article,aside,footer,header,h1,h2,h3,h4,h5,h6,hgroup,nav,section,' +
+  'div,dd,dl,dt,figcaption,figure,picture,hr,img,li,main,ol,p,pre,ul,' +
+  'a,b,abbr,bdi,bdo,br,cite,code,data,dfn,em,i,kbd,mark,q,rp,rt,rtc,ruby,' +
+  's,samp,small,span,strong,sub,sup,time,u,var,wbr,area,audio,map,track,video,' +
+  'embed,object,param,source,canvas,script,noscript,del,ins,' +
+  'caption,col,colgroup,table,thead,tbody,td,th,tr,' +
+  'button,datalist,fieldset,form,input,label,legend,meter,optgroup,option,' +
+  'output,progress,select,textarea,' +
+  'details,dialog,menu,menuitem,summary,' +
+  'content,element,shadow,template,blockquote,iframe,tfoot'
+);
+const isReservedTag = (tag) => {
+  return isHTMLTag(tag)
+};
+
+function genStaticKeys (modules) {
+  return modules.reduce((keys, m) => {
+    return keys.concat(m.staticKeys || [])
+  }, []).join(',')
+}
+const options = {
+  modules: modules$1,
+  directives: directives$1,
+  mustUseProp,
+  isReservedTag,
+  staticKeys: genStaticKeys(modules$1)
+}
+function compileToFunctions (template, comp) {
+  let res = {}
+  let compiled = compile(template, options)
+  res.render = createFunction(compiled.render)
+  res.staticRenderFns = compiled.staticRenderFns.map(code => {
+    return createFunction(code)
+  })
+  return res
+}
+function createFunction (code) {
+  try {
+    return new Function(code)
+  } catch (err) {
+    console.log('createFunction', err)
+    return noop
+  }
+}
+function compile (template, options) {
+  const ast = parse(template, options)
+  // optimize(ast, options)
+  const code = generate(ast, options)
   return {
     ast,
-    render: code.render
+    render: code.render,
+    staticRenderFns: code.staticRenderFns
   }
 }
 function createASTElement (tag, attrs, parent) {
@@ -17,7 +258,7 @@ function createASTElement (tag, attrs, parent) {
     children: []
   }
 }
-function parse (template) {
+function parse (template, options) {
   let stack = []
   let root
   let currentParent
@@ -375,9 +616,7 @@ function parseHTML (html, options) {
       rest = html.slice(textEnd)
       while (
         !endTag.test(rest) &&
-        !startTagOpen.test(rest) &&
-        !comment.test(rest) &&
-        !conditionalComment.test(rest)
+        !startTagOpen.test(rest)
       ) {
         // < in plain text, be forgiving and treat it as text
         next = rest.indexOf('<', 1)
@@ -515,5 +754,289 @@ function parseHTML (html, options) {
         options.end(tagName, start, end)
       }
     }
+  }
+}
+
+// optimize
+function optimize (root, options) {
+  if (!root) return
+  isStaticKey = genStaticKeysCached(options.staticKeys || '');
+  isPlatformReservedTag = options.isReservedTag || no;
+  // first pass: mark all non-static nodes.
+  markStatic$1(root);
+  // second pass: mark static roots.
+  markStaticRoots(root, false);
+}
+
+// generate
+class CodegenState {
+  constructor (options) {
+    this.options = options;
+    this.warn = options.warn || baseWarn;
+    this.transforms = pluckModuleFunction(options.modules, 'transformCode');
+    this.dataGenFns = pluckModuleFunction(options.modules, 'genData');
+    this.directives = extend(extend({}, baseDirectives), options.directives);
+    const isReservedTag = options.isReservedTag || no;
+    this.maybeComponent = (el) => !isReservedTag(el.tag);
+    this.onceId = 0;
+    this.staticRenderFns = [];
+  }
+}
+
+function genElement (el, state) {
+  if (el.staticRoot && !el.staticProcessed) {
+    return genStatic(el, state)
+  } else if (el.once && !el.onceProcessed) {
+    return genOnce(el, state)
+  } else if (el.for && !el.forProcessed) {
+    return genFor(el, state)
+  } else if (el.if && !el.ifProcessed) {
+    return genIf(el, state)
+  } else if (el.tag === 'template' && !el.slotTarget) {
+    return genChildren(el, state) || 'void 0'
+  } else if (el.tag === 'slot') {
+    return genSlot(el, state)
+  } else {
+    // component or element
+    let code;
+    if (el.component) {
+      code = genComponent(el.component, el, state);
+    } else {
+      const data = el.plain ? undefined : genData$2(el, state);
+
+      const children = el.inlineTemplate ? null : genChildren(el, state, true);
+      code = `_c('${el.tag}'${
+        data ? `,${data}` : '' // data
+      }${
+        children ? `,${children}` : '' // children
+      })`;
+    }
+    // module transforms
+    for (let i = 0; i < state.transforms.length; i++) {
+      code = state.transforms[i](el, code);
+    }
+    return code
+  }
+}
+
+function genComponent (
+  componentName,
+  el,
+  state
+) {
+  const children = el.inlineTemplate ? null : genChildren(el, state, true);
+  return `_c(${componentName},${genData$2(el, state)}${
+    children ? `,${children}` : ''
+  })`
+}
+
+function genData$2 (el, state) {
+  let data = '{';
+
+  // directives first.
+  // directives may mutate the el's other properties before they are generated.
+  const dirs = genDirectives(el, state);
+  if (dirs) data += dirs + ',';
+
+  // key
+  if (el.key) {
+    data += `key:${el.key},`;
+  }
+  // ref
+  if (el.ref) {
+    data += `ref:${el.ref},`;
+  }
+  if (el.refInFor) {
+    data += `refInFor:true,`;
+  }
+  // pre
+  if (el.pre) {
+    data += `pre:true,`;
+  }
+  // record original tag name for components using "is" attribute
+  if (el.component) {
+    data += `tag:"${el.tag}",`;
+  }
+  // module data generation functions
+  for (let i = 0; i < state.dataGenFns.length; i++) {
+    data += state.dataGenFns[i](el);
+  }
+  // attributes
+  if (el.attrs) {
+    data += `attrs:{${genProps(el.attrs)}},`;
+  }
+  // DOM props
+  if (el.props) {
+    data += `domProps:{${genProps(el.props)}},`;
+  }
+  // event handlers
+  if (el.events) {
+    data += `${genHandlers(el.events, false, state.warn)},`;
+  }
+  if (el.nativeEvents) {
+    data += `${genHandlers(el.nativeEvents, true, state.warn)},`;
+  }
+  // slot target
+  // only for non-scoped slots
+  if (el.slotTarget && !el.slotScope) {
+    data += `slot:${el.slotTarget},`;
+  }
+  // scoped slots
+  if (el.scopedSlots) {
+    data += `${genScopedSlots(el.scopedSlots, state)},`;
+  }
+  // component v-model
+  if (el.model) {
+    data += `model:{value:${
+      el.model.value
+    },callback:${
+      el.model.callback
+    },expression:${
+      el.model.expression
+    }},`;
+  }
+  // inline-template
+  if (el.inlineTemplate) {
+    const inlineTemplate = genInlineTemplate(el, state);
+    if (inlineTemplate) {
+      data += `${inlineTemplate},`;
+    }
+  }
+  data = data.replace(/,$/, '') + '}';
+  // v-bind data wrap
+  if (el.wrapData) {
+    data = el.wrapData(data);
+  }
+  // v-on data wrap
+  if (el.wrapListeners) {
+    data = el.wrapListeners(data);
+  }
+  return data
+}
+
+function genFor (
+  el,
+  state
+) {
+  const exp = el.for;
+  const alias = el.alias;
+  const iterator1 = el.iterator1 ? `,${el.iterator1}` : '';
+  const iterator2 = el.iterator2 ? `,${el.iterator2}` : '';
+
+  el.forProcessed = true; // avoid recursion
+  return `_l(${exp},` +
+    `function(${alias}${iterator1}${iterator2}){` +
+      `return ${genElement(el, state)}` +
+    '})'
+}
+
+function genIf (
+  el,
+  state
+) {
+  el.ifProcessed = true; // avoid recursion
+  return genIfConditions(el.ifConditions.slice(), state)
+}
+
+function genIfConditions (
+  conditions,
+  state
+) {
+  if (!conditions.length) {
+    return altEmpty || '_e()'
+  }
+
+  const condition = conditions.shift();
+  if (condition.exp) {
+    return `(${condition.exp})?${
+      genTernaryExp(condition.block)
+    }:${
+      genIfConditions(conditions, state)
+    }`
+  } else {
+    return `${genTernaryExp(condition.block)}`
+  }
+
+  // v-if with v-once should generate code like (a)?_m(0):_m(1)
+  function genTernaryExp (el) {
+    return genElement(el, state)
+  }
+}
+
+function genChildren (
+  el,
+  state,
+  checkSkip
+) {
+  const children = el.children;
+  if (children.length) {
+    const el = children[0];
+    // optimize single v-for
+    if (children.length === 1 &&
+      el.for &&
+      el.tag !== 'template' &&
+      el.tag !== 'slot'
+    ) {
+      return genElement(el, state)
+    }
+    const normalizationType = checkSkip
+      ? getNormalizationType(children, state.maybeComponent)
+      : 0;
+    return `[${children.map(c => genNode(c, state)).join(',')}]${
+      normalizationType ? `,${normalizationType}` : ''
+    }`
+  }
+}
+
+function getNormalizationType (
+  children,
+  maybeComponent
+) {
+  let res = 0;
+  for (let i = 0; i < children.length; i++) {
+    const el = children[i];
+    if (el.type !== 1) {
+      continue
+    }
+    if (needsNormalization(el) ||
+        (el.ifConditions && el.ifConditions.some(c => needsNormalization(c.block)))) {
+      res = 2;
+      break
+    }
+    if (maybeComponent(el) ||
+        (el.ifConditions && el.ifConditions.some(c => maybeComponent(c.block)))) {
+      res = 1;
+    }
+  }
+  return res
+}
+
+function genSlot (el, state) {
+  const slotName = el.slotName || '"default"';
+  const children = genChildren(el, state);
+  let res = `_t(${slotName}${children ? `,${children}` : ''}`;
+  const attrs = el.attrs && `{${el.attrs.map(a => `${camelize(a.name)}:${a.value}`).join(',')}}`;
+  const bind$$1 = el.attrsMap['v-bind'];
+  if ((attrs || bind$$1) && !children) {
+    res += `,null`;
+  }
+  if (attrs) {
+    res += `,${attrs}`;
+  }
+  if (bind$$1) {
+    res += `${attrs ? '' : ',null'},${bind$$1}`;
+  }
+  return res + ')'
+}
+
+function generate (
+  ast,
+  options
+) {
+  const state = new CodegenState(options);
+  const code = ast ? genElement(ast, state) : '_c("div")';
+  return {
+    render: `with(this){return ${code}}`,
+    staticRenderFns: state.staticRenderFns
   }
 }

@@ -11,6 +11,19 @@ function error (s) {
 function isObject (obj) {
   return obj !== null && typeof obj === 'object'
 }
+
+function toString (val) {
+  return val == null
+    ? ''
+    : typeof val === 'object'
+      ? JSON.stringify(val, null, 2)
+      : String(val)
+}
+
+function toNumber (val) {
+  const n = parseFloat(val);
+  return isNaN(n) ? val : n
+}
 // utils function
 function noop () {}
 
@@ -167,12 +180,7 @@ ViewComp.prototype._mount = function (el) {
   // 执行真正的挂载过程，即将虚拟DOM转换为真实DOM
   return mountComponent(this, el)
 }
-function compileToFunctions (template, comp) {
-  let res = {}
-  let compiled = compile(template)
-  res.render = createFunction(compiled.render)
-  return res
-}
+
 function mountComponent (vm, el) {
   vm.$el = el
   let updateComponent = () => {
@@ -209,5 +217,190 @@ ViewComp.prototype.$watch = function (expOrFn, cb, options) {
   }
   return function unwatchFn () {
     watcher.teardown()
+  }
+}
+installRenderHelpers(ViewComp.prototype)
+function installRenderHelpers (target) {
+  // target._o = markOnce;
+  target._n = toNumber;
+  target._s = toString;
+  target._l = renderList;
+  target._t = renderSlot;
+  // target._q = looseEqual;
+  // target._i = looseIndexOf;
+  // target._m = renderStatic;
+  // target._f = resolveFilter;
+  // target._k = checkKeyCodes;
+  // target._b = bindObjectProps;
+  // target._v = createTextVNode;
+  target._e = createEmptyVNode;
+  // target._u = resolveScopedSlots;
+  // target._g = bindObjectListeners;
+  target._c = (a, b, c, d) => createElement(vm, a, b, c, d, false);
+}
+
+function renderList (
+  val,
+  render
+) {
+  let ret, i, l, keys, key;
+  if (Array.isArray(val) || typeof val === 'string') {
+    ret = new Array(val.length);
+    for (i = 0, l = val.length; i < l; i++) {
+      ret[i] = render(val[i], i);
+    }
+  } else if (typeof val === 'number') {
+    ret = new Array(val);
+    for (i = 0; i < val; i++) {
+      ret[i] = render(i + 1, i);
+    }
+  } else if (isObject(val)) {
+    keys = Object.keys(val);
+    ret = new Array(keys.length);
+    for (i = 0, l = keys.length; i < l; i++) {
+      key = keys[i];
+      ret[i] = render(val[key], key, i);
+    }
+  }
+  if (isDef(ret)) {
+    (ret)._isVList = true;
+  }
+  return ret
+}
+
+function renderSlot (
+  name,
+  fallback,
+  props,
+  bindObject
+) {
+  const scopedSlotFn = this.$scopedSlots[name];
+  let nodes;
+  if (scopedSlotFn) { // scoped slot
+    props = props || {};
+    if (bindObject) {
+      if ("development" !== 'production' && !isObject(bindObject)) {
+        warn(
+          'slot v-bind without argument expects an Object',
+          this
+        );
+      }
+      props = extend(extend({}, bindObject), props);
+    }
+    nodes = scopedSlotFn(props) || fallback;
+  } else {
+    const slotNodes = this.$slots[name];
+    // warn duplicate slot usage
+    if (slotNodes) {
+      if ("development" !== 'production' && slotNodes._rendered) {
+        warn(
+          `Duplicate presence of slot "${name}" found in the same render tree ` +
+          `- this will likely cause render errors.`,
+          this
+        );
+      }
+      slotNodes._rendered = true;
+    }
+    nodes = slotNodes || fallback;
+  }
+
+  const target = props && props.slot;
+  if (target) {
+    return this.$createElement('template', { slot: target }, nodes)
+  } else {
+    return nodes
+  }
+}
+const createEmptyVNode = (text = '') => {
+  const node = new VNode();
+  node.text = text;
+  node.isComment = true;
+  return node
+};
+function createElement (
+  context,
+  tag,
+  data,
+  children,
+  normalizationType,
+  alwaysNormalize
+) {
+  if (Array.isArray(data) || isPrimitive(data)) {
+    normalizationType = children;
+    children = data;
+    data = undefined;
+  }
+  if (isTrue(alwaysNormalize)) {
+    normalizationType = ALWAYS_NORMALIZE;
+  }
+  return _createElement(context, tag, data, children, normalizationType)
+}
+function _createElement (
+  context,
+  tag,
+  data,
+  children,
+  normalizationType
+) {
+  if (isDef(data) && isDef((data).__ob__)) {
+    "development" !== 'production' && warn(
+      `Avoid using observed data object as vnode data: ${JSON.stringify(data)}\n` +
+      'Always create fresh vnode data objects in each render!',
+      context
+    );
+    return createEmptyVNode()
+  }
+  // object syntax in v-bind
+  if (isDef(data) && isDef(data.is)) {
+    tag = data.is;
+  }
+  if (!tag) {
+    // in case of component :is set to falsy value
+    return createEmptyVNode()
+  }
+  // support single function children as default scoped slot
+  if (Array.isArray(children) &&
+    typeof children[0] === 'function'
+  ) {
+    data = data || {};
+    data.scopedSlots = { default: children[0] };
+    children.length = 0;
+  }
+  if (normalizationType === ALWAYS_NORMALIZE) {
+    children = normalizeChildren(children);
+  } else if (normalizationType === SIMPLE_NORMALIZE) {
+    children = simpleNormalizeChildren(children);
+  }
+  let vnode, ns;
+  if (typeof tag === 'string') {
+    let Ctor;
+    ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag);
+    if (config.isReservedTag(tag)) {
+      // platform built-in elements
+      vnode = new VNode(
+        config.parsePlatformTagName(tag), data, children,
+        undefined, undefined, context
+      );
+    } else if (isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {
+      // component
+      vnode = createComponent(Ctor, data, context, children, tag);
+    } else {
+      // unknown or unlisted namespaced elements
+      // check at runtime because it may get assigned a namespace when its
+      // parent normalizes children
+      vnode = new VNode(
+        tag, data, children,
+        undefined, undefined, context
+      );
+    }
+  } else {
+    // direct component options / constructor
+    vnode = createComponent(tag, data, context, children);
+  }
+  if (isDef(vnode)) {
+    if (ns) applyNS(vnode, ns);
+    return vnode
+  } else {
+    return createEmptyVNode()
   }
 }
