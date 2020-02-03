@@ -126,17 +126,6 @@ function model (
   const tag = el.tag;
   const type = el.attrsMap.type;
 
-  {
-    // inputs with type="file" are read only and setting the input's
-    // value will throw an error.
-    if (tag === 'input' && type === 'file') {
-      warn$1(
-        `<${el.tag} v-model="${value}" type="file">:\n` +
-        `File inputs are read only. Use a v-on:change listener instead.`
-      );
-    }
-  }
-
   if (el.component) {
     genComponentModel(el, value, modifiers);
     // component v-model doesn't need extra runtime
@@ -263,7 +252,7 @@ function parse (template, options) {
   let root
   let currentParent
 
-  parseHTML(template, {        
+  parseHTML(template, {
     start: function (tag, attrs, unary) {
       let element = createASTElement(tag, attrs, currentParent)
       for (let i = 0; i < preTransforms.length; i++) {
@@ -279,14 +268,6 @@ function parse (template, options) {
       }
       if (!root) {
         root = element
-      } else if (!stack.length) {
-        // allow root elements with v-if, v-else-if and v-else
-        if (root.if && (element.elseif || element.else)) {
-          addIfCondition(root, {
-            exp: element.elseif,
-            block: element
-          })
-        }
       }
       if (currentParent && !element.forbidden) {
         if (element.elseif || element.else) {

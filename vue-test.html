@@ -5,28 +5,172 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Document</title>
-  <script src="vue.js"></script>
+  <script src="vue1.js"></script>
 </head>
 <body>
-  <div id="app">{{message}}</div>
+  <div id="app"></div>
 </body>
 <script>
+// examples
+// <div>
+//   <span v-if="a===1">1</span>
+//   <span v-else-if="a===2">2</span>
+//   <span v-else-if="a===3">3</span>
+// </div>
+//
+// _c('div',[(a===1)?_c('span',[_v("1")]):(a===2)?_c('span',[_v("2")]):(a===3)?_c('span',[_v("3")]):_e()])
+// ==================================================
+// <div>
+//   <span v-if="a===1">{{condition1}}</span>
+//   <span v-else-if="a===2">{{condition2}}</span>
+//   <span v-else-if="a===3">{{condition3}}</span>
+// </div>
+//
+// _c('div',[(a===1)?_c('span',[_v(_s(condition1))]):(a===2)?_c('span',[_v(_s(condition2))]):(a===3)?_c('span',[_v(_s(condition3))]):_e()])
+// ==================================================
+// <div class="test-for">
+//   <div v-for="r in resourcelist" :key="r.id">
+//     <span>{{r.v}}</span>
+//   </div>
+// </div>
+
+// _c('div',{staticClass:"test-for"},_l((resourcelist),function(r){return _c('div',{key:r.id},[_c('span',[_v(_s(r.v))])])}),0)
+// ==================================================
+// <div class="test-component">
+//   <my-component></my-component>
+// </div>
+
+// _c('div',{staticClass:"test-component"},[_c('my-component')],1)
+// ==================================================
+// <div class="test-component">
+//   <my-component :cprop="mcprop"></my-component>
+// </div>
+
+// _c('div',{staticClass:"test-component"},[_c('my-component',{attrs:{"cprop":mcprop}})],1)
+
+// ==================================================
+// <div class="test-component">
+//   <my-component :cprop="mcprop">
+//     <template v-slot:content>
+//       <div>slot-content</div>
+//     </template>
+//   </my-component>
+// </div>
+
+// _c(
+//   'div',
+//   {
+//     staticClass: "test-component"
+//   },
+//   [
+//     _c(
+//       'my-component',
+//       {
+//         attrs: {
+//           "cprop": mcprop
+//         },
+//         scopedSlots: _u(
+//           [
+//             {
+//               key: "content",
+//               fn: function() {
+//                 return [_c('div', [_v("slot-content")])]
+//               },
+//               proxy: true
+//             }
+//           ]
+//         )
+//       }
+//     )
+//   ],
+//   1
+// )
+
+// <div class="my-comp">
+//   <div>{{cprop}}</div>
+//   <slot name="content"></slot>
+// </div>
+// _c('div',{staticClass:"my-comp"},[_c('div',[_v(_s(cprop))]),_v(" "),_t("content")],2)
+
+// ==================================================
+// <div class="test-component">
+//   <my-component :cprop="mcprop">
+//     <template v-slot:content="slotProps">
+//       <div>slot-scope</div>
+//       <div>{{slotProps.cdata1}}</div>
+//     </template>
+//   </my-component>
+// </div>
+
+// _c('div', {
+//     staticClass: "test-component"
+// },
+// [_c('my-component', {
+//     attrs: {
+//         "cprop": mcprop
+//     },
+//     scopedSlots: _u([{
+//         key: "content",
+//         fn: function(slotProps) {
+//             return [_c('div', [_v("slot-scope")]), _v(" "), _c('div', [_v(_s(slotProps.cdata1))])]
+//         }
+//     }])
+// })], 1)
+
+// <div class="my-comp">
+//   <div>{{cprop}}</div>
+//   <slot name="content" :cdata1="cdata1"></slot>
+// </div>
+
+// _c('div',{staticClass:"my-comp"},[_c('div',[_v(_s(cprop))]),_v(" "),_t("content",null,{"cdata1":cdata1})],2)
+
+
+// <div class="test-component">
+//   <my-component :cprop="mcprop" @onCbEmit="onCbEmit">
+//     <template v-slot:content="slotProps">
+//       <div>slot-scope</div>
+//       <div>{{slotProps.cdata1}}</div>
+//     </template>
+//   </my-component>
+// </div>
+
+
+// <div class="my-comp">
+//   <div>{{cprop}}</div>
+//   <slot name="content" :cdata1="cdata1"></slot>
+// </div>
+
+
+// let myComponent = {
+//   data: function () {
+//     return {
+//       cdata1: 1
+//     }
+//   },
+//   props: {
+//     cprop: {
+//       type: String,
+//       default: ''
+//     }
+//   },
+//   template: `
+//     <div class="my-comp">
+//       <div>{{cprop}}{{cdata1}}</div>
+//     </div>
+//   `,
+//   mounted: function () {
+//     this.cdata1 = 2
+//   }
+// }
+
 var app = new Vue({
   el: '#app',
   data: {
     message: 'Hello ViewComp!',
-    a: 1
+    mcprop: '3'
   },
-  template: `
-  <div>
-    <span v-if="a===1">1</span>
-    <span v-else-if="a===2">2</span>
-    <span v-else-if="a===3">3</span>
-  </div>
-  `,
-  mounted() {
-    this.message = '111'
-  },
+  // template: `<div class="test-component"><span v-if="mcprop==='3'">{{message}}</span></div>`
+  template: `<div class="test-component">{{message}}</div>`
 })
 </script>
 </html>

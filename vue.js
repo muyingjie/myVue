@@ -1908,6 +1908,7 @@
   var pending = false;
 
   function flushCallbacks () {
+    console.log('timerFunc then')
     pending = false;
     var copies = callbacks.slice(0);
     callbacks.length = 0;
@@ -1939,6 +1940,7 @@
   if (typeof Promise !== 'undefined' && isNative(Promise)) {
     var p = Promise.resolve();
     timerFunc = function () {
+      console.log('timerFunc')
       p.then(flushCallbacks);
       // In problematic UIWebViews, Promise.then doesn't completely break, but
       // it can get stuck in a weird state where callbacks are pushed into the
@@ -4378,6 +4380,7 @@
    * pushed when the queue is being flushed.
    */
   function queueWatcher (watcher) {
+    console.log('queueWatcher', waiting, flushing)
     var id = watcher.id;
     if (has[id] == null) {
       has[id] = true;
@@ -9229,22 +9232,6 @@
     'link,meta,param,source,track,wbr'
   );
 
-  // Elements that you can, intentionally, leave open
-  // (and which close themselves)
-  var canBeLeftOpenTag = makeMap(
-    'colgroup,dd,dt,li,options,p,td,tfoot,th,thead,tr,source'
-  );
-
-  // HTML5 tags https://html.spec.whatwg.org/multipage/indices.html#elements-3
-  // Phrasing Content https://html.spec.whatwg.org/multipage/dom.html#phrasing-content
-  var isNonPhrasingTag = makeMap(
-    'address,article,aside,base,blockquote,body,caption,col,colgroup,dd,' +
-    'details,dialog,div,dl,dt,fieldset,figcaption,figure,footer,form,' +
-    'h1,h2,h3,h4,h5,h6,head,header,hgroup,hr,html,legend,li,menuitem,meta,' +
-    'optgroup,option,param,rp,rt,source,style,summary,tbody,td,tfoot,th,thead,' +
-    'title,tr,track'
-  );
-
   /**
    * Not type-checking this file because it's mostly vendor code.
    */
@@ -9257,10 +9244,6 @@
   var startTagOpen = new RegExp(("^<" + qnameCapture));
   var startTagClose = /^\s*(\/?)>/;
   var endTag = new RegExp(("^<\\/" + qnameCapture + "[^>]*>"));
-  var doctype = /^<!DOCTYPE [^>]+>/i;
-  // #7298: escape - to avoid being passed as HTML comment when inlined in page
-  var comment = /^<!\--/;
-  var conditionalComment = /^<!\[/;
 
   // Special Elements (can contain anything)
   var isPlainTextElement = makeMap('script,style,textarea', true);
@@ -9278,10 +9261,6 @@
   var encodedAttr = /&(?:lt|gt|quot|amp|#39);/g;
   var encodedAttrWithNewLines = /&(?:lt|gt|quot|amp|#39|#10|#9);/g;
 
-  // #5992
-  var isIgnoreNewlineTag = makeMap('pre,textarea', true);
-  var shouldIgnoreFirstNewline = function (tag, html) { return tag && isIgnoreNewlineTag(tag) && html[0] === '\n'; };
-
   function decodeAttr (value, shouldDecodeNewlines) {
     var re = shouldDecodeNewlines ? encodedAttrWithNewLines : encodedAttr;
     return value.replace(re, function (match) { return decodingMap[match]; })
@@ -9289,118 +9268,58 @@
 
   function parseHTML (html, options) {
     var stack = [];
-    var expectHTML = options.expectHTML;
     var isUnaryTag$$1 = options.isUnaryTag || no;
-    var canBeLeftOpenTag$$1 = options.canBeLeftOpenTag || no;
     var index = 0;
     var last, lastTag;
     while (html) {
       last = html;
-      // Make sure we're not in a plaintext content element like script/style
-      if (!lastTag || !isPlainTextElement(lastTag)) {
-        var textEnd = html.indexOf('<');
-        if (textEnd === 0) {
-          // Comment:
-          if (comment.test(html)) {
-            var commentEnd = html.indexOf('-->');
-
-            if (commentEnd >= 0) {
-              if (options.shouldKeepComment) {
-                options.comment(html.substring(4, commentEnd), index, index + commentEnd + 3);
-              }
-              advance(commentEnd + 3);
-              continue
-            }
-          }
-
-          // http://en.wikipedia.org/wiki/Conditional_comment#Downlevel-revealed_conditional_comment
-          if (conditionalComment.test(html)) {
-            var conditionalEnd = html.indexOf(']>');
-
-            if (conditionalEnd >= 0) {
-              advance(conditionalEnd + 2);
-              continue
-            }
-          }
-
-          // Doctype:
-          var doctypeMatch = html.match(doctype);
-          if (doctypeMatch) {
-            advance(doctypeMatch[0].length);
-            continue
-          }
-
-          // End tag:
-          var endTagMatch = html.match(endTag);
-          if (endTagMatch) {
-            var curIndex = index;
-            advance(endTagMatch[0].length);
-            parseEndTag(endTagMatch[1], curIndex, index);
-            continue
-          }
-
-          // Start tag:
-          var startTagMatch = parseStartTag();
-          if (startTagMatch) {
-            handleStartTag(startTagMatch);
-            if (shouldIgnoreFirstNewline(startTagMatch.tagName, html)) {
-              advance(1);
-            }
-            continue
-          }
+      var textEnd = html.indexOf('<');
+      if (textEnd === 0) {
+        // End tag:
+        var endTagMatch = html.match(endTag);
+        if (endTagMatch) {
+          var curIndex = index;
+          advance(endTagMatch[0].length);
+          parseEndTag(endTagMatch[1], curIndex, index);
+          continue
         }
 
-        var text = (void 0), rest = (void 0), next = (void 0);
-        if (textEnd >= 0) {
+        // Start tag:
+        var startTagMatch = parseStartTag();
+        if (startTagMatch) {
+          handleStartTag(startTagMatch);
+          continue
+        }
+      }
+
+      var text = (void 0), rest = (void 0), next = (void 0);
+      if (textEnd >= 0) {
+        rest = html.slice(textEnd);
+        while (
+          !endTag.test(rest) &&
+          !startTagOpen.test(rest) &&
+          !comment.test(rest) &&
+          !conditionalComment.test(rest)
+        ) {
+          // < in plain text, be forgiving and treat it as text
+          next = rest.indexOf('<', 1);
+          if (next < 0) { break }
+          textEnd += next;
           rest = html.slice(textEnd);
-          while (
-            !endTag.test(rest) &&
-            !startTagOpen.test(rest) &&
-            !comment.test(rest) &&
-            !conditionalComment.test(rest)
-          ) {
-            // < in plain text, be forgiving and treat it as text
-            next = rest.indexOf('<', 1);
-            if (next < 0) { break }
-            textEnd += next;
-            rest = html.slice(textEnd);
-          }
-          text = html.substring(0, textEnd);
         }
+        text = html.substring(0, textEnd);
+      }
 
-        if (textEnd < 0) {
-          text = html;
-        }
+      if (textEnd < 0) {
+        text = html;
+      }
 
-        if (text) {
-          advance(text.length);
-        }
+      if (text) {
+        advance(text.length);
+      }
 
-        if (options.chars && text) {
-          options.chars(text, index - text.length, index);
-        }
-      } else {
-        var endTagLength = 0;
-        var stackedTag = lastTag.toLowerCase();
-        var reStackedTag = reCache[stackedTag] || (reCache[stackedTag] = new RegExp('([\\s\\S]*?)(</' + stackedTag + '[^>]*>)', 'i'));
-        var rest$1 = html.replace(reStackedTag, function (all, text, endTag) {
-          endTagLength = endTag.length;
-          if (!isPlainTextElement(stackedTag) && stackedTag !== 'noscript') {
-            text = text
-              .replace(/<!\--([\s\S]*?)-->/g, '$1') // #7298
-              .replace(/<!\[CDATA\[([\s\S]*?)]]>/g, '$1');
-          }
-          if (shouldIgnoreFirstNewline(stackedTag, text)) {
-            text = text.slice(1);
-          }
-          if (options.chars) {
-            options.chars(text);
-          }
-          return ''
-        });
-        index += html.length - rest$1.length;
-        html = rest$1;
-        parseEndTag(stackedTag, index - endTagLength, index);
+      if (options.chars && text) {
+        options.chars(text, index - text.length, index);
       }
 
       if (html === last) {
@@ -9448,16 +9367,6 @@
     function handleStartTag (match) {
       var tagName = match.tagName;
       var unarySlash = match.unarySlash;
-
-      if (expectHTML) {
-        if (lastTag === 'p' && isNonPhrasingTag(tagName)) {
-          parseEndTag(lastTag);
-        }
-        if (canBeLeftOpenTag$$1(tagName) && lastTag === tagName) {
-          parseEndTag(tagName);
-        }
-      }
-
       var unary = isUnaryTag$$1(tagName) || !!unarySlash;
 
       var l = match.attrs.length;
@@ -9472,10 +9381,6 @@
           name: args[1],
           value: decodeAttr(value, shouldDecodeNewlines)
         };
-        if (options.outputSourceRange) {
-          attrs[i].start = args.start + args[0].match(/^\s*/).length;
-          attrs[i].end = args.end;
-        }
       }
 
       if (!unary) {
@@ -9558,8 +9463,6 @@
   var lineBreakRE = /[\r\n]/;
   var whitespaceRE$1 = /\s+/g;
 
-  var invalidAttributeRE = /[\s"'<>\/=]/;
-
   var decodeHTMLCached = cached(he.decode);
 
   var emptySlotScopeToken = "_empty_";
@@ -9569,10 +9472,8 @@
   var delimiters;
   var transforms;
   var preTransforms;
-  var postTransforms;
   var platformIsPreTag;
   var platformMustUseProp;
-  var platformGetTagNamespace;
   var maybeComponent;
 
   function createASTElement (
@@ -9602,13 +9503,11 @@
 
     platformIsPreTag = options.isPreTag || no;
     platformMustUseProp = options.mustUseProp || no;
-    platformGetTagNamespace = options.getTagNamespace || no;
     var isReservedTag = options.isReservedTag || no;
     maybeComponent = function (el) { return !!el.component || !isReservedTag(el.tag); };
 
     transforms = pluckModuleFunction(options.modules, 'transformNode');
     preTransforms = pluckModuleFunction(options.modules, 'preTransformNode');
-    postTransforms = pluckModuleFunction(options.modules, 'postTransformNode');
 
     delimiters = options.delimiters;
 
@@ -9619,39 +9518,11 @@
     var currentParent;
     var inVPre = false;
     var inPre = false;
-    var warned = false;
-
-    function warnOnce (msg, range) {
-      if (!warned) {
-        warned = true;
-        warn$2(msg, range);
-      }
-    }
 
     function closeElement (element) {
       trimEndingWhitespace(element);
       if (!inVPre && !element.processed) {
         element = processElement(element, options);
-      }
-      // tree management
-      if (!stack.length && element !== root) {
-        // allow root elements with v-if, v-else-if and v-else
-        if (root.if && (element.elseif || element.else)) {
-          {
-            checkRootConstraints(element);
-          }
-          addIfCondition(root, {
-            exp: element.elseif,
-            block: element
-          });
-        } else {
-          warnOnce(
-            "Component template should contain exactly one root element. " +
-            "If you are using v-if on multiple elements, " +
-            "use v-else-if to chain them instead.",
-            { start: element.start }
-          );
-        }
       }
       if (currentParent && !element.forbidden) {
         if (element.elseif || element.else) {
@@ -9682,10 +9553,6 @@
       if (platformIsPreTag(element.tag)) {
         inPre = false;
       }
-      // apply post-transforms
-      for (var i = 0; i < postTransforms.length; i++) {
-        postTransforms[i](element, options);
-      }
     }
 
     function trimEndingWhitespace (el) {
@@ -9702,109 +9569,27 @@
       }
     }
 
-    function checkRootConstraints (el) {
-      if (el.tag === 'slot' || el.tag === 'template') {
-        warnOnce(
-          "Cannot use <" + (el.tag) + "> as component root element because it may " +
-          'contain multiple nodes.',
-          { start: el.start }
-        );
-      }
-      if (el.attrsMap.hasOwnProperty('v-for')) {
-        warnOnce(
-          'Cannot use v-for on stateful component root element because ' +
-          'it renders multiple elements.',
-          el.rawAttrsMap['v-for']
-        );
-      }
-    }
-
     parseHTML(template, {
       warn: warn$2,
-      expectHTML: options.expectHTML,
       isUnaryTag: options.isUnaryTag,
-      canBeLeftOpenTag: options.canBeLeftOpenTag,
       shouldDecodeNewlines: options.shouldDecodeNewlines,
       shouldDecodeNewlinesForHref: options.shouldDecodeNewlinesForHref,
-      shouldKeepComment: options.comments,
       outputSourceRange: options.outputSourceRange,
       start: function start (tag, attrs, unary, start$1, end) {
-        // check namespace.
-        // inherit parent ns if there is one
-        var ns = (currentParent && currentParent.ns) || platformGetTagNamespace(tag);
-
-        // handle IE svg bug
-        /* istanbul ignore if */
-        if (isIE && ns === 'svg') {
-          attrs = guardIESVGBug(attrs);
-        }
-
         var element = createASTElement(tag, attrs, currentParent);
-        if (ns) {
-          element.ns = ns;
-        }
-
-        {
-          if (options.outputSourceRange) {
-            element.start = start$1;
-            element.end = end;
-            element.rawAttrsMap = element.attrsList.reduce(function (cumulated, attr) {
-              cumulated[attr.name] = attr;
-              return cumulated
-            }, {});
-          }
-          attrs.forEach(function (attr) {
-            if (invalidAttributeRE.test(attr.name)) {
-              warn$2(
-                "Invalid dynamic argument expression: attribute names cannot contain " +
-                "spaces, quotes, <, >, / or =.",
-                {
-                  start: attr.start + attr.name.indexOf("["),
-                  end: attr.start + attr.name.length
-                }
-              );
-            }
-          });
-        }
-
-        if (isForbiddenTag(element) && !isServerRendering()) {
-          element.forbidden = true;
-          warn$2(
-            'Templates should only be responsible for mapping the state to the ' +
-            'UI. Avoid placing tags with side-effects in your templates, such as ' +
-            "<" + tag + ">" + ', as they will not be parsed.',
-            { start: element.start }
-          );
-        }
 
         // apply pre-transforms
         for (var i = 0; i < preTransforms.length; i++) {
           element = preTransforms[i](element, options) || element;
         }
-
-        if (!inVPre) {
-          processPre(element);
-          if (element.pre) {
-            inVPre = true;
-          }
-        }
-        if (platformIsPreTag(element.tag)) {
-          inPre = true;
-        }
-        if (inVPre) {
-          processRawAttrs(element);
-        } else if (!element.processed) {
+        if (!element.processed) {
           // structural directives
           processFor(element);
           processIf(element);
-          processOnce(element);
         }
 
         if (!root) {
           root = element;
-          {
-            checkRootConstraints(root);
-          }
         }
 
         if (!unary) {
@@ -9827,44 +9612,12 @@
       },
 
       chars: function chars (text, start, end) {
-        if (!currentParent) {
-          {
-            if (text === template) {
-              warnOnce(
-                'Component template requires a root element, rather than just text.',
-                { start: start }
-              );
-            } else if ((text = text.trim())) {
-              warnOnce(
-                ("text \"" + text + "\" outside root element will be ignored."),
-                { start: start }
-              );
-            }
-          }
-          return
-        }
-        // IE textarea placeholder bug
-        /* istanbul ignore if */
-        if (isIE &&
-          currentParent.tag === 'textarea' &&
-          currentParent.attrsMap.placeholder === text
-        ) {
-          return
-        }
         var children = currentParent.children;
         if (inPre || text.trim()) {
           text = isTextTag(currentParent) ? text : decodeHTMLCached(text);
         } else if (!children.length) {
           // remove the whitespace-only node right after an opening tag
           text = '';
-        } else if (whitespaceOption) {
-          if (whitespaceOption === 'condense') {
-            // in condense mode, remove the whitespace node if it contains
-            // line break, otherwise condense to a single space
-            text = lineBreakRE.test(text) ? '' : ' ';
-          } else {
-            text = ' ';
-          }
         } else {
           text = preserveWhitespace ? ' ' : '';
         }
@@ -9875,6 +9628,7 @@
           }
           var res;
           var child;
+          // 包含{{}}模板语法的
           if (!inVPre && text !== ' ' && (res = parseText(text, delimiters))) {
             child = {
               type: 2,
@@ -9915,33 +9669,6 @@
       }
     });
     return root
-  }
-
-  function processPre (el) {
-    if (getAndRemoveAttr(el, 'v-pre') != null) {
-      el.pre = true;
-    }
-  }
-
-  function processRawAttrs (el) {
-    var list = el.attrsList;
-    var len = list.length;
-    if (len) {
-      var attrs = el.attrs = new Array(len);
-      for (var i = 0; i < len; i++) {
-        attrs[i] = {
-          name: list[i].name,
-          value: JSON.stringify(list[i].value)
-        };
-        if (list[i].start != null) {
-          attrs[i].start = list[i].start;
-          attrs[i].end = list[i].end;
-        }
-      }
-    } else if (!el.pre) {
-      // non root node in pre blocks with no attributes
-      el.plain = true;
-    }
   }
 
   function processElement (
@@ -10098,13 +9825,6 @@
       el.ifConditions = [];
     }
     el.ifConditions.push(condition);
-  }
-
-  function processOnce (el) {
-    var once$$1 = getAndRemoveAttr(el, 'v-once');
-    if (once$$1 != null) {
-      el.once = true;
-    }
   }
 
   // handle content being passed to a component as slot,
@@ -10443,32 +10163,6 @@
     return el.tag === 'script' || el.tag === 'style'
   }
 
-  function isForbiddenTag (el) {
-    return (
-      el.tag === 'style' ||
-      (el.tag === 'script' && (
-        !el.attrsMap.type ||
-        el.attrsMap.type === 'text/javascript'
-      ))
-    )
-  }
-
-  var ieNSBug = /^xmlns:NS\d+/;
-  var ieNSPrefix = /^NS\d+:/;
-
-  /* istanbul ignore next */
-  function guardIESVGBug (attrs) {
-    var res = [];
-    for (var i = 0; i < attrs.length; i++) {
-      var attr = attrs[i];
-      if (!ieNSBug.test(attr.name)) {
-        attr.name = attr.name.replace(ieNSPrefix, '');
-        res.push(attr);
-      }
-    }
-    return res
-  }
-
   function checkForAliasModel (el, value) {
     var _el = el;
     while (_el) {
@@ -10589,13 +10283,11 @@
   /*  */
 
   var baseOptions = {
-    expectHTML: true,
     modules: modules$1,
     directives: directives$1,
     isPreTag: isPreTag,
     isUnaryTag: isUnaryTag,
     mustUseProp: mustUseProp,
-    canBeLeftOpenTag: canBeLeftOpenTag,
     isReservedTag: isReservedTag,
     getTagNamespace: getTagNamespace,
     staticKeys: genStaticKeys(modules$1)
@@ -10950,10 +10642,6 @@
   }
 
   function genElement (el, state) {
-    if (el.parent) {
-      el.pre = el.pre || el.parent.pre;
-    }
-
     if (el.staticRoot && !el.staticProcessed) {
       return genStatic(el, state)
     } else if (el.once && !el.onceProcessed) {
@@ -10979,10 +10667,6 @@
 
         var children = el.inlineTemplate ? null : genChildren(el, state, true);
         code = "_c('" + (el.tag) + "'" + (data ? ("," + data) : '') + (children ? ("," + children) : '') + ")";
-      }
-      // module transforms
-      for (var i = 0; i < state.transforms.length; i++) {
-        code = state.transforms[i](el, code);
       }
       return code
     }
@@ -11927,7 +11611,7 @@
         }
 
         var ref = compileToFunctions(template, {
-          outputSourceRange: "development" !== 'production',
+          outputSourceRange: false,
           shouldDecodeNewlines: shouldDecodeNewlines,
           shouldDecodeNewlinesForHref: shouldDecodeNewlinesForHref,
           delimiters: options.delimiters,

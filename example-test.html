@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+  .cur {
+    background: #eee;
+  }
+  </style>
+</head>
+<body>
+    <div id="app"></div>
+</body>
+<script src="vue.js"></script>
+<script>
+let regionSelect = {
+  data () {
+    return {}
+  },
+  props: ['regionAll', 'curRegionId'],
+  template: `
+  <ul>
+    <li :class="{cur: r.id === curRegionId}" v-for="r in regionAll" :key="r.id" @click="onRegionClick(r)">{{r.name}}</li>
+  </ul>
+  `,
+  methods: {
+    onRegionClick (r) {
+      this.$emit('onRegionChange', r.id)
+    }
+  },
+  mounted () {
+    console.log('regionSelect mounted')
+  }
+}
+let tableShow = {
+  data () {
+    return {}
+  },
+  props: ['resourceList'],
+  template: `
+  <table>
+    <thead>
+      <tr>
+        <th>名称</th>
+        <th>地区</th>
+      </tr>
+    </thead>
+    <tbody>
+      <template v-for="r in resourceList">
+        <tr>
+          <td>{{r.name}}</td>
+          <td>{{r.region}}</td>
+          <td>
+            <span @click="toggleShowDetail(r)">展开{{r.isExpand}}</span>
+          </td>
+        </tr>
+        <tr v-if="r.isExpand">
+          <td>
+            {{r.ip}}<br/>
+            {{r.disk}}
+          </td>
+        </tr>
+      </template>
+    </tbody>
+  </table>
+  `,
+  mounted () {
+    console.log('tableShow mounted')
+  },
+  methods: {
+    toggleShowDetail (r) {
+      r.isExpand = !r.isExpand
+    }
+  }
+}
+let allResources = [
+  {id: 'i1', name: 'n1', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i2', name: 'n2', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i3', name: 'n3', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i4', name: 'n4', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i5', name: 'n5', region: 'bj', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i6', name: 'n6', region: 'bj', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i7', name: 'n7', region: 'bj', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i8', name: 'n8', region: 'bj', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i9', name: 'n9', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i10', name: 'n10', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i11', name: 'n11', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i12', name: 'n12', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+  {id: 'i13', name: 'n13', region: 'gz', ip: '110.110.110.3', disk: 'diskname'},
+]
+let app = new Vue({
+  el: '#app',
+  components: {
+    regionSelect,
+    tableShow
+  },
+  data () {
+    return {
+      regionAll: [],
+      curRegionId: '',
+      resourceList: []
+    }
+  },
+  template: `
+    <div class="layout">
+      <region-select
+        :regionAll="regionAll"
+        :curRegionId="curRegionId"
+        @onRegionChange="onRegionChange"></region-select>
+      <table-show
+        :resourceList="resourceList"></table-show>
+    </div>
+  `,
+  methods: {
+    getRegionList () {
+      this.regionAll = [
+        {id: 'gz', name: '广州'},
+        {id: 'bj', name: '北京'},
+      ]
+      this.curRegionId = this.regionAll[0].id
+    },
+    getResourceList () {
+      this.resourceList = allResources
+      this.resourceList.forEach(r => {
+        this.$set(r, 'isExpand', false)
+      })
+      this.resourceList = this.resourceList.filter(r => {
+        return r.region === this.curRegionId
+      })
+    },
+    onRegionChange (id) {
+      this.curRegionId = id
+      this.getResourceList()
+    }
+  },
+  mounted () {
+    this.getRegionList()
+    this.getResourceList()
+    console.log('layout mounted')
+  }
+})
+</script>
+</html>

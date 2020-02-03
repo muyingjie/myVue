@@ -8,3 +8,48 @@ initAssetRegisters
 resolveAsset
 在mergeOptions的过程中，将会取出父组件注册的全局组件，merge到子组件上，这样子组件就可以用到这些全局组件
 components在合并过程中调用的合并策略函数是mergeAssets
+
+
+  function cached (fn) {
+    var cache = Object.create(null);
+    return (function cachedFn (str) {
+      var hit = cache[str];
+      return hit || (cache[str] = fn(str))
+    })
+  }
+
+  var genStaticKeysCached = cached(genStaticKeys$1);
+
+  // 会调用很多次
+  function optimize (root, options) {
+    if (!root) { return }
+    isStaticKey = genStaticKeysCached(options.staticKeys || '');
+    isPlatformReservedTag = options.isReservedTag || no;
+    // first pass: mark all non-static nodes.
+    markStatic$1(root);
+    // second pass: mark static roots.
+    markStaticRoots(root, false);
+  }
+
+  function genStaticKeys$1 (keys) {
+    return makeMap(
+      'type,tag,attrsList,attrsMap,plain,parent,children,attrs,start,end,rawAttrsMap' +
+      (keys ? ',' + keys : '')
+    )
+  }
+
+组件化思路：
+组件即一类相似展示形式的dom元素集合，既然要组件化，我们就需要给这堆元素集合做一个标记，这样在父组件中引用这个标记，即认为是对这个组件的调用
+
+每个组件被实例化，展示在页面当中时经历的主要过程：
+1、初始化组件内的变量，将其变为响应式的 initData initProps
+2、生成vnode树
+3、根据vnode树生成dom节点
+4、更新响应式数据时，vnode树变化，对应的dom也更新
+
+问题：
+1、页面组件化之后，开发人员只需要实例化最外层的根组件，其余组件要在什么时候实例化？
+一定是父组件在实例化的过程中遇到需要加载的子组件，才去实例化，而非把所有用到的组件全都实例化
+
+defineReactive的过程中，给每个响应式变量定义一个数组，$mount的时候原型上定义一个updateComponent方法，在defineReactive中不断收集这些方法，这样可不可以？
+
