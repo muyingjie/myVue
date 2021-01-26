@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+  .good-detail {
+    border: 1px solid #333;
+    padding: 10px;
+  }
+  .item {
+    height: 40px;
+  }
+  </style>
+</head>
+<body>
+  <div class="good-detail">
+    <div class="item name"></div>
+    <div class="item cpu-num"></div>
+    <div class="item memory"></div>
+    <div class="item brand"></div>
+    <div class="item category"></div>
+    <div class="item color"></div>
+  </div>
+</body>
+<script src="../frameworkExplore/jQuery3.4.js"></script>
+<script>
+let good = {
+  id: '8faw8cs4fw9760zt7tnesini4qup5hid',
+  name: 'iPhoneX',
+  cpuNum: 1,
+  memory: 1073741824,
+  brand: 'iPhone',
+  category: 'phone',
+  color: 'black'
+}
+$(".name").html('名称：' + good.name)
+$(".cpu-num").html('CPU：' + good.cpuNum)
+$(".memory").html('内存：' + good.memory)
+$(".brand").html('品牌：' + good.brand)
+$(".category").html('分类：' + good.category)
+$(".color").html('颜色：' + good.color)
+</script>
+</html>

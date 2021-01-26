@@ -2502,6 +2502,7 @@ function initMixin (Vue) {
    */
 
   Vue.prototype._init = function (options) {
+    console.log('init', this)
     options = options || {};
 
     this.$el = null;
@@ -7228,6 +7229,7 @@ function compileRoot(el, options, contextOptions) {
     }
 
     // link self
+    // linkAndCapture会执行传入的回调，便利dirs执行其_bind方法
     var selfDirs = linkAndCapture(function () {
       if (replacerLinkFn) replacerLinkFn(vm, el);
     }, vm);
@@ -7814,6 +7816,7 @@ function transclude(el, options) {
     }
     if (options.template) {
       options._content = extractContent(el);
+      // 将options.template转换为实际的dom对象
       el = transcludeTemplate(el, options);
     }
   }
@@ -8738,7 +8741,11 @@ function lifecycleMixin (Vue) {
     // the template and caches the original attributes
     // on the container node and replacer node.
     var original = el;
+    // 将container el和options.template里的元素属性合并，返回合并的元素
+    // 赋值_containerAttrs
+    // 赋值_replacerAttrs (内部调用transcludeTemplate所为)
     el = transclude(el, options);
+    // 将el赋值给$el
     this._initElement(el);
 
     // handle v-pre on root node (#2026)

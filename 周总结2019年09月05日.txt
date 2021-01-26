@@ -113,3 +113,27 @@ function defineProperty (obj, k) {
     }
   })
 }
+
+1、data函数返回的对象中，从最外层到每个属性，都有一个对应的dep对象，基础类型值对应的dep对象和对象类型对应的dep对象有何不同，重点关注数组的dep对象是如何实例化的
+2、Vue组件实例上注册的watch和渲染watcher，在Vue实例上的watchers数组中先后顺序是怎么样的
+3、组件实例化的过程
+4、data合并策略
+5、插槽实现，作用域插槽
+6、watch中immediate: true和lazy选项之间的关系
+7、hasHandler和getHandler的区别
+8、render函数在执行时会先执行hasHandler和getHandler，然后再执行sharedPropertyDefinition，再执行属性的get钩子方法
+9、createElement  -> 普通标签 -> VNode
+                  -> 组件    -> createComponent   -> installComponentHooks  -> new VNode(("vue-component-" + (Ctor.cid) + (name ? ("-" + name) : '')) 此处生成的VNode是个外壳组件，真正的包含有DOM实体的组件会在update方法里出现
+  update -> patch -> createElm -> createComponent（外壳组件实体化的过程）
+  -> componentVNodeHooks.init 
+  -> child = createComponentInstanceForVnode 
+    -> vnode.componentOptions.Ctor 
+    -> _init
+  -> child.$mount
+10、componentVNodeHooks
+11、installComponentHooks里面会给data.hook赋值，其中就包括data.hook.init组件实例化时就从这里开始
+12、createElm的insertedVnodeQueue参数什么时候有意义？
+initLifecycle 父子组件关系如何确定，$parent的初始化时机
+_render方法的逻辑
+
+Vue对象的原型上有_render方法，每个组件自己的$options上又有自己的render方法，_render方法内部会调组件自己的render方法

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    .good-detail {
+      border: 1px solid #333;
+      padding: 10px;
+    }
+    .item {
+      height: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+<script>
+function isArray (o) {
+  return Object.prototype.toString.call(o) === '[object Array]'
+}
+function isObject (o) {
+  return Object.prototype.toString.call(o) === '[object Object]'
+}
+function isString (o) {
+  return Object.prototype.toString.call(o) === '[object String]'
+}
+function isBoolean (o) {
+  return Object.prototype.toString.call(o) === '[object Boolean]'
+}
+function isNumber (o) {
+  return Object.prototype.toString.call(o) === '[object Number]'
+}
+function isNull (o) {
+  return Object.prototype.toString.call(o) === '[object Number]'
+}
+function isUndefined (o) {
+  return Object.prototype.toString.call(o) === '[object Undefined]'
+}
+function canShowDirectlyType (o) {
+  return isString(o) || isBoolean(o) || isNumber(o) || isNull(o) || isUndefined(o)
+}
+function isHTMLElement (o) {
+  return o.nodeType && o.nodeType === 1
+}
+function ViewComponent (options) {
+  this.el = document.querySelector(options.el)
+  this.data = options.data
+  this.methods = options.methods
+  this.render = options.render
+  this.renderedElement = null
+  this.init()
+}
+ViewComponent.prototype.init = function () {
+  setDataReactive(this.data)
+
+  this.renderAndCollectDependencies()
+}
+ViewComponent.prototype.renderAndCollectDependencies = function () {
+  this.update = this.update.bind(this)
+  curExecUpdate = this.update
+  this.update()
+  curExecUpdate = null
+}
+ViewComponent.prototype.update = function () {
+  // 清除旧的DOM
+  let oldRenderedElement = this.renderedElement || this.el
+
+  this.renderedElement = this.render()
+  let parent = oldRenderedElement.parentNode
+  let sibling = oldRenderedElement.nextElementSibling
+  parent.removeChild(oldRenderedElement)
+  if (sibling) {
+    parent.insertBefore(this.renderedElement, sibling)
+  } else {
+    parent.appendChild(this.renderedElement)
+  }
+}
+ViewComponent.prototype.createElement = function (tagName, attrs, childNodes) {
+  let o = document.createElement(tagName)
+  for (let k in attrs) {
+    if (k === 'class') {
+      o.className = attrs.class
+    } else if (k === 'on') {
+      let events = attrs.on
+      let eventKeys = Object.keys(events)
+      for (let i = 0; i < eventKeys.length; i++) {
+        let eventName = eventKeys[i]
+        events[eventName] = events[eventName].bind(this)
+        o.addEventListener(eventName, events[eventName])
+      }
+    }
+  }
+  if (!childNodes) return o
+  if (isArray(childNodes)) {
+    for (let i = 0; i < childNodes.length; i++) {
+      let child = childNodes[i]
+      o.appendChild(child)
+    }
+  } else if (isHTMLElement(childNodes)) {
+    o.appendChild(childNodes)
+  } else if (canShowDirectlyType(childNodes)) {
+    o.appendChild(document.createTextNode(childNodes))
+  }
+  return o
+}
+function setDataReactive (data) {
+  let keys = Object.keys(data)
+  for (let i = 0; i < keys.length; i++) {
+    let v = data[keys[i]]
+    if (isObject(v)) {
+      setDataReactive(v)
+    } else {
+      defineReactive(data, keys[i], v)
+    }
+  }
+}
+
+let curExecUpdate = null
+function defineReactive(data, key, val) {
+  let updatesFn = []
+  Object.defineProperty(data, key, {
+    enumerable: true,
+    configurable: true,
+    get: function () {
+      if (curExecUpdate && !updatesFn.find(curExecUpdate)) {
+        updatesFn.push(curExecUpdate)
+      }
+      return val
+    },
+    set: function (newVal) {
+      val = newVal
+      for (let i = 0; i < updatesFn.length; i++) {
+        updatesFn[i]()
+      }
+    }
+  })
+}
+
+new ViewComponent({
+  el: '#app',
+  data: {
+    isShowDetail: false,
+    good: {
+      id: '8faw8cs4fw9760zt7tnesini4qup5hid',
+      name: 'iPhoneX',
+      cpuNum: 1,
+      memory: 1073741824,
+      brand: 'iPhone',
+      category: 'phone',
+      color: 'black'
+    }
+  },
+  methods: {
+    switchDetail () {
+      this.data.isShowDetail = !this.data.isShowDetail
+    }
+  },
+  render: function () {
+    // 生成新的DOM
+    let children = [
+      this.createElement('div', { class: 'abstract' }, [
+        this.createElement('div', { class: 'name' }, this.data.good.name),
+        this.createElement('div', { class: 'brand' }, this.data.good.brand),
+        this.createElement('span', {
+          class: 'switch',
+          on: { click: this.methods.switchDetail }
+        }, '切换')
+      ])
+    ]
+    if (this.data.isShowDetail) {
+      children.push(
+        this.createElement('div', { class: 'item' }, this.data.good.cpuNum),
+        this.createElement('div', { class: 'item' }, this.data.good.memory),
+        this.createElement('div', { class: 'item' }, this.data.good.category),
+        this.createElement('div', { class: 'item' }, this.data.good.color)
+      )
+    }
+    return this.createElement('div', { class: 'good-detail' }, 
+      this.createElement('div', { class: 'detail' }, children)
+    )
+  }
+})
+</script>
+</html>

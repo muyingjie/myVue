@@ -1,0 +1,18 @@
+BIOS
+-> 确定好从哪块盘启动，即哪块盘是系统盘
+-> 加载MBR中存放的boot.img到0x7c00这个地址处    ----从此开始进入系统盘
+-> boot.img加载core.img的第1个扇区，里面放着diskboot.img
+-> diskboot.img先是解压缩程序 lzma_decompress.img，再往下是 kernel.img，最后是各个模块 module 对应的映像
+-> lzma_decompress.img    ----进入保护模式
+-> 切换保护模式的函数 DATA32 call real_to_prot 会打开Gate A20，也就是第 21 根地址线的控制线
+
+配置系统启动项的指令：grub2-mkconfig -o /boot/grub2/grub.cfg
+这个命令是在Linux命令行执行吗？这个时候都还没有进入操作系统，要如何执行？
+
+BIOS初始化更详细的资料老师有没有推荐？
+
+所以在真正的解压缩之前，lzma_decompress.img 做了一个重要的决定，调用real_to_prot，
+这句话我理解为lzma_decompress.img自己调用了real_to_prot，程序还没有解压，怎么能调用呢？
+还有，这个real_to_prot函数是在哪里定义的？
+
+活动分区和非活动分区是由MBR中分区表中的活动标记位来确定的，0x80为活动分区，0x00为非活动分区

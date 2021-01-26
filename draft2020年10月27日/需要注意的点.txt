@@ -1,0 +1,8 @@
+data的第一层一定不会是数组，Observer中处理数组的情况是针对data属性中那些值为数组的属性的情况
+
+
+
+
+
+调用方式优化：this.data.good.cpuNum -> this.good.cpuNum
+我感觉通过遍历data、methods、props等，将其全都挂到this对象上似乎也可以，为什么用proxy代理呢？

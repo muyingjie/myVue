@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+  .good-detail {
+    border: 1px solid #333;
+    padding: 10px;
+  }
+  .item {
+    height: 40px;
+  }
+  </style>
+</head>
+<body>
+</body>
+<script>
+function isArray (o) {
+  return Object.prototype.toString.call(o) === '[object Array]'
+}
+function ViewComponent (options) {
+  this.el = document.querySelector(options.el)
+  this.data = options.data
+  this.renderRule = options.renderRule
+  this.renderedElement = null
+  this.init()
+}
+ViewComponent.prototype.init = function () {
+  this.renderedElement = this.createElementsByRenderRule()
+}
+ViewComponent.prototype.createElementsByRenderRule = function () {
+  let o = this.createElementByRenderRuleObject(this.renderRule)
+  if (isArray(this.renderRule.children)) {
+    for (let i = 0; i < this.renderRule.children.length; i++) {
+      let c = this.createElementByRenderRuleObject(this.renderRule.children[i])
+      o.appendChild(c)
+    }
+  }
+  this.el.appendChild(o)
+}
+ViewComponent.prototype.createElementByRenderRuleObject = function (rro) {
+  let o = document.createElement(rro.tag)
+  o.className = rro.class
+  if (rro.content) {
+    let a = parse(rro.content)
+    let handledProperty = this.getComponentDataProperty(a)
+    let templateVariableBound = /{{\S+}}/g
+    let handledContent = rro.content.replace(templateVariableBound, handledProperty)
+    let t = document.createTextNode(handledContent)
+    o.appendChild(t)
+  }
+  return o
+}
+ViewComponent.prototype.getComponentDataProperty = function (a) {
+  let l = a.length
+  let r = this.data
+
+  for (let i = 0; i < l; i++) {
+    let s = a[i]
+    r = r[s]
+    if (r === undefined) return
+  }
+  return r
+}
+function parse (t) {
+  let templateVariableBound = /{{(\S+)}}/
+  let a = t.match(templateVariableBound)
+  return a[1].split('.')
+}
+
+new ViewComponent({
+  el: 'body',
+  data: {
+    good: {
+      id: '8faw8cs4fw9760zt7tnesini4qup5hid',
+      name: 'iPhoneX',
+      cpuNum: 1,
+      memory: 1073741824,
+      brand: 'iPhone',
+      category: 'phone',
+      color: 'black'
+    }
+  },
+  renderRule: {
+    tag: 'div',
+    class: 'good-detail',
+    children: [
+      { tag: 'div', class: 'item', content: '名称：{{good.name}}' },
+      { tag: 'div', class: 'item', content: 'CPU：{{good.cpuNum}}' },
+      { tag: 'div', class: 'item', content: '内存：{{good.memory}}' },
+      { tag: 'div', class: 'item', content: '品牌：{{good.brand}}' },
+      { tag: 'div', class: 'item', content: '分类：{{good.category}}' },
+      { tag: 'div', class: 'item', content: '颜色：{{good.color}}' }
+    ]
+  }
+})
+</script>
+</html>

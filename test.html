@@ -5,42 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Document</title>
-  <!-- <script src="render.js"></script>
-  <script src="own-vue.js"></script> -->
+  <script src="ViewComponent.js"></script>
 </head>
 <body>
   <div id="app"></div>
 </body>
 <script>
-// var app = new ViewComp({
-//   el: '#app',
-//   // 此处通过render创建的节点会将页面上原有的#app替换掉
-//   render: function (createElement) {
-//     console.log(this._data)
-//     return createElement('div', {}, this.message)
-//   },
-//   data: function () {
-//     return {
-//       message: 'Hello ViewComp!'
-//     }
-//   }
-// })
-let obj = {
-  a: 1,
-  b: 2,
-  arr: ['a', 'b', 'c'],
-  fn1: function () {
-    console.log('obj fn1')
+let app = new ViewComponent({
+  $el: '#app',
+  data: {
+    msg: 'hello'
   },
-  fn2: function (arr, fn) {
-    fn()
-  }
-}
-with (obj) {
-  fn2(arr, function () {
-    console.log('with function inner a', a)
-    fn1()
-  })
-}
+  template: '<div r-text="msg"></div>'
+})
 </script>
 </html>
