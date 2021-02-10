@@ -9,17 +9,29 @@
     * {
       box-sizing: border-box;
     }
-    .good-detail {
-      border: 1px solid #333;
-      padding: 10px;
-    }
-    .item {
+    .alert {
+      margin-top: 10px;
+      width: 600px;
       height: 40px;
+      border: 1px solid #000;
+    }
+    .alert .text {
+      line-height: 40px;
+      padding-left: 20px;
     }
   </style>
 </head>
 <body>
   <div id="app"></div>
+
+  <!-- 下面这部分需要替换掉上面的#app -->
+  <!-- <button class="click-show">点击展示</button>
+  <my-alert></my-alert> -->
+
+  <!-- my-alert的实现 -->
+  <!-- <div class="alert">
+    <div class="text">左侧文字</div>
+  </div> -->
 </body>
 <script>
 function isArray (o) {
@@ -46,25 +58,64 @@ function isNull (o) {
 function isUndefined (o) {
   return Object.prototype.toString.call(o) === '[object Undefined]'
 }
+function kebabToCamelCase (s) {
+  var reg = /(^|-)(\w)/g
+  return s.replace(reg, function($, $1, $2){
+    return $2.toUpperCase()
+  })
+}
 function canShowDirectlyType (o) {
   return isString(o) || isBoolean(o) || isNumber(o) || isNull(o) || isUndefined(o)
 }
 function isHTMLElement (o) {
   return o.nodeType && o.nodeType === 1
 }
+let tagsString = 'html,body,base,head,link,meta,style,title,' +
+  'address,article,aside,footer,header,h1,h2,h3,h4,h5,h6,hgroup,nav,section,' +
+  'div,dd,dl,dt,figcaption,figure,picture,hr,img,li,main,ol,p,pre,ul,' +
+  'a,b,abbr,bdi,bdo,br,cite,code,data,dfn,em,i,kbd,mark,q,rp,rt,rtc,ruby,' +
+  's,samp,small,span,strong,sub,sup,time,u,var,wbr,area,audio,map,track,video,' +
+  'embed,object,param,source,canvas,script,noscript,del,ins,' +
+  'caption,col,colgroup,table,thead,tbody,td,th,tr,' +
+  'button,datalist,fieldset,form,input,label,legend,meter,optgroup,option,' +
+  'output,progress,select,textarea,' +
+  'details,dialog,menu,menuitem,summary,' +
+  'content,element,shadow,template,blockquote,iframe,tfoot'
+let tagNameMap = tagsString.split(',').reduce(function (acc, tagName) {
+  acc[tagName] = true
+  return acc
+}, {})
+function isReservedTag (tagName) {
+  return tagNameMap[tagName]
+}
 function ViewComponent (options) {
-  this.el = document.querySelector(options.el)
+  this.el = options.el ? document.querySelector(options.el) : undefined
+  this.propOptions = options.props
   this.data = options.data
   this.methods = options.methods
   this.render = options.render
+  this.components = options.components
+  this.$options = options
   this.renderedElement = null
   this.init()
 }
 ViewComponent.prototype.init = function () {
+  this.initProps()
   this.initData()
   this.initMethods()
 
   this.renderAndCollectDependencies()
+}
+ViewComponent.prototype.initProps = function () {
+  if (!this.propOptions) return
+  let keys = Object.keys(this.propOptions)
+  let propsData = this.$options.propsData
+  this.props = {}
+  for (let i = 0; i < keys.length; i++) {
+    this.props[keys[i]] = propsData[keys[i]] !== undefined ? propsData[keys[i]] : this.propOptions[keys[i]].default
+    setProxy(this, 'props', keys[i])
+  }
+  setDataReactive(this.props)
 }
 ViewComponent.prototype.initData = function () {
   let data = isFunction(this.data) ? this.data.call(this) : this.data
@@ -92,16 +143,25 @@ ViewComponent.prototype.update = function () {
   let oldRenderedElement = this.renderedElement || this.el
 
   this.renderedElement = this.render()
-  let parent = oldRenderedElement.parentNode
-  let sibling = oldRenderedElement.nextElementSibling
-  parent.removeChild(oldRenderedElement)
-  if (sibling) {
-    parent.insertBefore(this.renderedElement, sibling)
-  } else {
-    parent.appendChild(this.renderedElement)
+  if (oldRenderedElement) {
+    let parent = oldRenderedElement.parentNode
+    let sibling = oldRenderedElement.nextElementSibling
+    parent.removeChild(oldRenderedElement)
+    if (sibling) {
+      parent.insertBefore(this.renderedElement, sibling)
+    } else {
+      parent.appendChild(this.renderedElement)
+    }
   }
 }
 ViewComponent.prototype.createElement = function (tagName, attrs, childNodes) {
+  if (isReservedTag(tagName)) {
+    return createHTMLElement(this, tagName, attrs, childNodes)
+  } else if (isValidComponent(this, tagName)) {
+    return createComponent(this, tagName, attrs, childNodes)
+  }
+}
+function createHTMLElement (vm, tagName, attrs, childNodes) {
   let o = document.createElement(tagName)
   for (let k in attrs) {
     if (k === 'class') {
@@ -111,7 +171,7 @@ ViewComponent.prototype.createElement = function (tagName, attrs, childNodes) {
       let eventKeys = Object.keys(events)
       for (let i = 0; i < eventKeys.length; i++) {
         let eventName = eventKeys[i]
-        events[eventName] = events[eventName].bind(this)
+        events[eventName] = events[eventName].bind(vm)
         o.addEventListener(eventName, events[eventName])
       }
     }
@@ -129,6 +189,22 @@ ViewComponent.prototype.createElement = function (tagName, attrs, childNodes) {
   }
   return o
 }
+
+function isValidComponent (vm, tagName) {
+  let normalizedComponentName = kebabToCamelCase(tagName)
+  return vm.components[normalizedComponentName]
+}
+
+function createComponent (vm, tagName, attrs, childNodes) {
+  let normalizedComponentName = kebabToCamelCase(tagName)
+  let componentOptions = vm.components[normalizedComponentName] || {}
+  let propsData = attrs.props
+
+  componentOptions.propsData = propsData
+  let componentInstance = new ViewComponent(componentOptions)
+  return componentInstance.renderedElement
+}
+
 function setDataReactive (data) {
   let keys = Object.keys(data)
   for (let i = 0; i < keys.length; i++) {
@@ -174,50 +250,62 @@ function setProxy(target, sourceKey, key) {
   })
 }
 
-new ViewComponent({
-  el: '#app',
+// <div class="alert">
+//   <div class="text">左侧文字</div>
+// </div>
+let MyAlert = {
+  props: {
+    content: {
+      default: ''
+    },
+  },
   data: function () {
     return {
-      isShowDetail: false,
-      good: {
-        id: '8faw8cs4fw9760zt7tnesini4qup5hid',
-        name: 'iPhoneX',
-        cpuNum: 1,
-        memory: 1073741824,
-        brand: 'iPhone',
-        category: 'phone',
-        color: 'black'
-      }
     }
   },
   methods: {
-    switchDetail () {
-      this.data.isShowDetail = !this.data.isShowDetail
+  },
+  render: function () {
+    let children = [
+      this.createElement('div', { class: 'text' }, this.content)
+    ]
+    return this.createElement('div', { class: 'alert' }, children)
+  }
+}
+
+let App = new ViewComponent({
+  el: '#app',
+  components: {
+    MyAlert: MyAlert
+  },
+  data: function () {
+    return {
+      alertVisible: false
+    }
+  },
+  methods: {
+    showAlert: function () {
+      this.alertVisible = true
     }
   },
   render: function () {
-    // 生成新的DOM
     let children = [
-      this.createElement('div', { class: 'abstract' }, [
-        this.createElement('div', { class: 'name' }, this.good.name),
-        this.createElement('div', { class: 'brand' }, this.good.brand),
-        this.createElement('span', {
-          class: 'switch',
-          on: { click: this.switchDetail }
-        }, '切换')
-      ])
+      this.createElement('button', {
+        class: 'click-show',
+        on: {
+          click: this.showAlert
+        }
+      }, '点击展示')
     ]
-    if (this.isShowDetail) {
-      children.push(
-        this.createElement('div', { class: 'item' }, this.good.cpuNum),
-        this.createElement('div', { class: 'item' }, this.good.memory),
-        this.createElement('div', { class: 'item' }, this.good.category),
-        this.createElement('div', { class: 'item' }, this.good.color)
-      )
+    if (this.alertVisible) {
+      let o = this.createElement('my-alert', { 
+        props: {
+          content: '左侧文字'
+        }
+      })
+      children.push(o)
     }
-    return this.createElement('div', { class: 'good-detail' }, 
-      this.createElement('div', { class: 'detail' }, children)
-    )
+    return this.createElement('div', { class: 'alert-wrap' }, children)
   }
 })
 </script>
