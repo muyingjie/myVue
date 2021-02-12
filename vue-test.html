@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Document</title>
-  <!-- <script src="vue.js"></script> -->
-  <script src="vue1.js"></script>
+  <script src="vue.js"></script>
+  <!-- <script src="vue1.js"></script> -->
 </head>
 <body>
   <div id="app"></div>
@@ -188,9 +188,9 @@ var app = new Vue({
   },
   // template: `<div class="test-component"><span v-for="s in testVFor">{{s}}</span></div>`
   // template: `<div class="test-component"><my-component cprop="mcprop" @mcFn=mcFn></my-component></div>`,
-  // template: `<div class="test-component"><my-component :cprop="mcprop" @mcFn=mcFn></my-component><button @click="change">改变</button></div>`,
+  template: `<div class="test-component"><my-component :cprop="mcprop" @mcFn=mcFn></my-component><button @click="change">改变</button></div>`,
   // template: `<div class="test-component"><span v-if="mcprop==='3'">{{message}}</span></div>`
-  template: `<div class="test-component">{{message}}</div>`,
+  // template: `<div class="test-component">{{message}}</div>`,
   created: function () {
     console.log('parent created')
   },

@@ -14,10 +14,16 @@
       width: 600px;
       height: 40px;
       border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
     }
     .alert .text {
       line-height: 40px;
-      padding-left: 20px;
+    }
+    .alert .close {
+      height: 25px;
     }
   </style>
 </head>
@@ -97,12 +103,14 @@ function ViewComponent (options) {
   this.components = options.components
   this.$options = options
   this.renderedElement = null
+  this.$parent = options.$parent || null
   this.init()
 }
 ViewComponent.prototype.init = function () {
   this.initProps()
   this.initData()
   this.initMethods()
+  this.initEvents()
 
   this.renderAndCollectDependencies()
 }
@@ -129,7 +137,17 @@ ViewComponent.prototype.initData = function () {
 ViewComponent.prototype.initMethods = function () {
   let keys = Object.keys(this.methods)
   for (let i = 0; i < keys.length; i++) {
-    setProxy(this, 'methods', keys[i])
+    this[keys[i]] = this.methods[keys[i]]
+  }
+}
+ViewComponent.prototype.initEvents = function () {
+  let events = this.$options.parentListeners
+  if (!events) return
+
+  let keys = Object.keys(events)
+  this.events = {}
+  for (let i = 0; i < keys.length; i++) {
+    this.events[keys[i]] = events[keys[i]]
   }
 }
 ViewComponent.prototype.renderAndCollectDependencies = function () {
@@ -159,6 +177,11 @@ ViewComponent.prototype.createElement = function (tagName, attrs, childNodes) {
     return createHTMLElement(this, tagName, attrs, childNodes)
   } else if (isValidComponent(this, tagName)) {
     return createComponent(this, tagName, attrs, childNodes)
+  }
+}
+ViewComponent.prototype.notifyParent = function (eventName, args) {
+  if (this.events && this.events[eventName]) {
+    this.events[eventName].apply(this.$parent, args)
   }
 }
 function createHTMLElement (vm, tagName, attrs, childNodes) {
@@ -199,8 +222,11 @@ function createComponent (vm, tagName, attrs, childNodes) {
   let normalizedComponentName = kebabToCamelCase(tagName)
   let componentOptions = vm.components[normalizedComponentName] || {}
   let propsData = attrs.props
+  let events = attrs.on
 
   componentOptions.propsData = propsData
+  componentOptions.parentListeners = events
+  componentOptions.$parent = vm
   let componentInstance = new ViewComponent(componentOptions)
   return componentInstance.renderedElement
 }
@@ -264,10 +290,19 @@ let MyAlert = {
     }
   },
   methods: {
+    close: function () {
+      this.notifyParent('close')
+    }
   },
   render: function () {
     let children = [
-      this.createElement('div', { class: 'text' }, this.content)
+      this.createElement('div', { class: 'text' }, this.content),
+      this.createElement('button', {
+        class: 'close',
+        on: {
+          click: this.close
+        }
+      }, '关闭')
     ]
     return this.createElement('div', { class: 'alert' }, children)
   }
@@ -286,6 +321,9 @@ let App = new ViewComponent({
   methods: {
     showAlert: function () {
       this.alertVisible = true
+    },
+    hideAlert: function () {
+      this.alertVisible = false
     }
   },
   render: function () {
@@ -301,6 +339,9 @@ let App = new ViewComponent({
       let o = this.createElement('my-alert', { 
         props: {
           content: '左侧文字'
+        },
+        on: {
+          close: this.hideAlert
         }
       })
       children.push(o)
